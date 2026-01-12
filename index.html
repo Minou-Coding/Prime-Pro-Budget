@@ -800,9 +800,38 @@
       useEffect(() => {
         const local = localStorage.getItem("onyx_budget_v2");
         if (local) setTransactions(JSON.parse(local));
-        window.addEventListener("ONYX_SIGNED_IN", () => setUser({ email: "Connecté" }));
+
+        const syncFromCloud = async () => {
+          console.log("Tentative de synchronisation Cloud...");
+          try {
+            if (window.loadTransactionsFromDrive) {
+              const cloudData = await window.loadTransactionsFromDrive();
+              if (Array.isArray(cloudData) && cloudData.length > 0) {
+                console.log("Données récupérées du Cloud :", cloudData.length);
+                // Optional: Merge strategy or simple replacement. Here we replace if cloud has data.
+                // Ideally we might want to merge, but let's stick to "Cloud is Truth" if it exists, or merge if local exists.
+                // Simple approach: Use Cloud data if available.
+                setTransactions(cloudData);
+                alert("Données synchronisées avec Google Drive !");
+              }
+            }
+          } catch (e) {
+            console.error("Erreur de synchro:", e);
+          }
+        };
+
+        window.addEventListener("ONYX_SIGNED_IN", () => {
+          setUser({ email: "Connecté" });
+          syncFromCloud();
+        });
+
         window.addEventListener("ONYX_SIGNED_OUT", () => setUser(null));
-        if (localStorage.getItem("onyx_google_authed") === "1") setUser({ email: "Utilisateur Cloud" });
+
+        if (localStorage.getItem("onyx_google_authed") === "1") {
+          setUser({ email: "Utilisateur Cloud" });
+          // Small delay to ensure auth init
+          setTimeout(syncFromCloud, 1000);
+        }
       }, []);
 
       useEffect(() => { localStorage.setItem("onyx_budget_v2", JSON.stringify(transactions)); }, [transactions]);

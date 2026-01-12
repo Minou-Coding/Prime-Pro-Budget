@@ -152,12 +152,33 @@
 
     /* Inputs */
     input,
-    select {
-      background: rgba(255, 255, 255, 0.03) !important;
+    select,
+    textarea {
+      background: rgba(20, 20, 20, 0.5) !important;
       border: 1px solid rgba(255, 255, 255, 0.1) !important;
       color: #fff !important;
       border-radius: 10px !important;
-      padding: 10px !important;
+      padding: 10px 14px !important;
+      accent-color: var(--primary);
+      /* Custom Dropdown Arrow */
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+    }
+
+    select {
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      background-size: 16px;
+      padding-right: 40px !important;
+    }
+
+    /* Force dark theme on options */
+    select option {
+      background-color: #0a0a0c;
+      color: white;
+      padding: 12px;
     }
 
     /* Sidebar */
@@ -322,7 +343,31 @@
     const Lucide = (props) => { useEffect(() => { if (window.lucide) window.lucide.createIcons() }, [props.icon]); return <i data-lucide={props.icon} className={props.className}></i> };
 
     /* --- Constants & Setup --- */
-    const CATEGORIES = [{ icon: "wallet", name: "Revenus", color: "#10b981" }, { icon: "shopping-cart", name: "Alimentation", color: "#00d9ff" }, { icon: "utensils", name: "Restaurants", color: "#ffb700" }, { icon: "coffee", name: "Cafés / Bars", color: "#ff006e" }, { icon: "home", name: "Logement", color: "#6366f1" }, { icon: "flame", name: "Énergie / Gaz", color: "#6366f1" }, { icon: "droplet", name: "Eau", color: "#0ea5e9" }, { icon: "wifi", name: "Internet / Télécom", color: "#6366f1" }, { icon: "phone", name: "Téléphone", color: "#6366f1" }, { icon: "car", name: "Voiture", color: "#2563eb" }, { icon: "bus", name: "Transports", color: "#22d3ee" }, { icon: "shopping-bag", name: "Shopping", color: "#f472b6" }, { icon: "gift", name: "Cadeaux", color: "#ef4444" }, { icon: "banknote", name: "Impôts", color: "#a21caf" }, { icon: "heart-pulse", name: "Santé", color: "#ef4444" }, { icon: "briefcase", name: "Travail", color: "#6366f1" }, { icon: "tv", name: "Abonnements", color: "#6366f1" }, { icon: "music", name: "Loisirs", color: "#a3e635" }, { icon: "star", name: "Bonus", color: "#facc15" }, { icon: "piggy-bank", name: "Épargne", color: "#10b981" }, { icon: "bug", name: "Imprévus", color: "#38bdf8" }, { icon: "smile", name: "Autre", color: "#d1d5db" }];
+    const CATEGORIES = [
+      { icon: "wallet-outline", name: "Revenus", color: "#10b981" },         // Emerald
+      { icon: "cart-outline", name: "Alimentation", color: "#3b82f6" }, // Blue
+      { icon: "restaurant-outline", name: "Restaurants", color: "#f59e0b" },     // Amber
+      { icon: "beer-outline", name: "Cafés / Bars", color: "#ec4899" },      // Pink
+      { icon: "home-outline", name: "Logement", color: "#8b5cf6" },           // Violet
+      { icon: "flash-outline", name: "Énergie / Gaz", color: "#eab308" },     // Yellow
+      { icon: "water-outline", name: "Eau", color: "#06b6d4" },             // Cyan
+      { icon: "wifi-outline", name: "Internet / Télécom", color: "#6366f1" }, // Indigo
+      { icon: "call-outline", name: "Téléphone", color: "#d946ef" },         // Fuchsia
+      { icon: "car-sport-outline", name: "Voiture", color: "#ef4444" },             // Red
+      { icon: "bus-outline", name: "Transports", color: "#14b8a6" },          // Teal
+      { icon: "bag-handle-outline", name: "Shopping", color: "#f43f5e" },   // Rose
+      { icon: "gift-outline", name: "Cadeaux", color: "#a855f7" },            // Purple
+      { icon: "document-text-outline", name: "Impôts", color: "#64748b" },         // Slate
+      { icon: "medkit-outline", name: "Santé", color: "#84cc16" },       // Lime
+      { icon: "briefcase-outline", name: "Travail", color: "#0f766e" },       // Dark Teal
+      { icon: "card-outline", name: "Abonnements", color: "#3730a3" },          // Dark Indigo
+      { icon: "game-controller-outline", name: "Loisirs", color: "#f97316" },           // Orange
+      { icon: "sparkles-outline", name: "Bonus", color: "#ffd700" },              // Gold
+      { icon: "leaf-outline", name: "Épargne", color: "#22c55e" },      // Green
+      { icon: "thunderstorm-outline", name: "Imprévus", color: "#991b1b" },            // Dark Red
+      { icon: "ellipsis-horizontal-circle-outline", name: "Autre", color: "#9ca3af" }              // Gray
+    ];
+
     const formatAmount = n => Number(n).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
     const formatDate = d => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
     const sum = (arr, fn) => arr.reduce((a, c) => a + fn(c), 0);
@@ -353,7 +398,7 @@
         if (t.type === 'income') map[key].totalIn += +t.amount;
         else map[key].totalOut += +t.amount;
       });
-      return Object.values(map).sort((a, b) => b.key.localeCompare(a.key));
+      return Object.values(map).sort((a, b) => b.key.localeCompare(a.key)); // Newest key (bigger) first
     }
 
     /* --- Components --- */
@@ -673,9 +718,7 @@
         reader.readAsText(file);
       }
 
-      // --- NEW: Duplicate Logic ---
       const handleDuplicateMonth = (targetYear, targetMonth) => {
-        // Filter source tx
         const toCopy = transactions.filter(t => monthKeyFromDate(t.date) === monthFilter);
         if (!toCopy.length) { alert("Rien à copier !"); return; }
 
@@ -694,9 +737,36 @@
         alert("Mois dupliqué avec succès !");
       };
 
+      // NEW: DELETE MOIS LOGIC
+      const handleDeleteMonth = (key) => {
+        const count = transactions.filter(t => monthKeyFromDate(t.date) === key).length;
+        if (count === 0) return;
+
+        if (!confirm(`Voulez-vous vraiment supprimer TOUTES les ${count} transactions de ${formatMonthLabel(key)} ?\nCette action est irréversible.`)) return;
+
+        const next = transactions.filter(t => monthKeyFromDate(t.date) !== key);
+        setTransactions(next);
+        if (window.saveTransactionsToDrive && user) window.saveTransactionsToDrive(next);
+
+        // Switch to current month or first available
+        setMonthFilter(monthKeyFromDate(new Date()));
+      };
+
       // Derived Data
       const availableMonths = getMonthsWithData(transactions);
-      // Ensure current filter is in list if it has no data yet (e.g. fresh month), or just handle it gracefully
+
+      // Sorting Logic for Select: Ensure List is STRICTLY sorted (Newest -> Oldest)
+      // availableMonths is already sorted DESC by getMonthsWithData
+      // We just need to make sure the currently selected month is included if it has no data
+      const optionsList = [...availableMonths];
+      if (!optionsList.find(m => m.key === monthFilter)) {
+        const d = new Date(monthFilter + "-01");
+        // Add purely for display logic, sorted insert not strictly necessary as it will just be selected
+        // But for cleanliness let's just prepend if it's "future" or "current" and empty
+        optionsList.unshift({ key: monthFilter, label: formatMonthLabel(monthFilter) });
+      }
+      // Re-sort to be safe so dropdown is always perfect
+      optionsList.sort((a, b) => b.key.localeCompare(a.key));
 
       // Filter transactions for current View
       const displayedTransactions = transactions.filter(t => monthKeyFromDate(t.date) === monthFilter);
@@ -720,16 +790,23 @@
                   <select
                     value={monthFilter}
                     onChange={(e) => setMonthFilter(e.target.value)}
-                    className="bg-white/10 border-none text-white text-sm rounded-lg px-2 py-1 outline-none font-bold"
+                    className="bg-white/10 border-none text-white text-sm rounded-lg px-2 py-1 outline-none font-bold cursor-pointer"
                   >
-                    {/* Make sure filtered month is an option even if empty */}
-                    <option value={monthFilter}>{formatMonthLabel(monthFilter)}</option>
-                    {availableMonths.map(m => (
-                      m.key !== monthFilter && <option key={m.key} value={m.key}>{m.label}</option>
+                    {optionsList.map(m => (
+                      <option key={m.key} value={m.key}>{m.label}</option>
                     ))}
-                    {/* Always offer current REAL month if not in list */}
-                    {/* Skipped for cleaner UI, use Date picker to jump? No, standard select is fine for existing data. To jump to new month, user creates TX in that month. */}
                   </select>
+
+                  {/* TRASH BUTTON FOR MONTH */}
+                  {displayedTransactions.length > 0 && (
+                    <button
+                      onClick={() => handleDeleteMonth(monthFilter)}
+                      className="p-2 text-white/40 hover:text-[var(--danger)] transition rounded-lg hover:bg-white/5"
+                      title="Supprimer ce mois (toutes les transactions)"
+                    >
+                      <ion-icon name="trash-outline"></ion-icon>
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="flex gap-3">
@@ -749,7 +826,8 @@
                   </>
                 )}
                 <button onClick={() => { setEditTx(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
-                  <ion-icon name="add-circle"></ion-icon> Transaction
+                  {/* Increased boldness and size for the plus icon */}
+                  <ion-icon name="add-circle" class="text-xl md:text-2xl font-bold"></ion-icon> <span className="font-bold">Transaction</span>
                 </button>
               </div>
             </header>
@@ -852,7 +930,7 @@
                     </div>
                     <div>
                       <label className="block text-sm text-[var(--text-muted)] mb-1">Type</label>
-                      <select name="type" defaultValue={editTx?.type || "expense"} className="w-full">
+                      <select name="type" defaultValue={editTx?.type || "expense"} className="w-full text-white">
                         <option value="expense">Dépense (Sortie)</option>
                         <option value="income">Revenu (Entrée)</option>
                       </select>
@@ -860,7 +938,7 @@
                   </div>
                   <div>
                     <label className="block text-sm text-[var(--text-muted)] mb-1">Catégorie</label>
-                    <select name="category" defaultValue={editTx?.category?.name} className="w-full">
+                    <select name="category" defaultValue={editTx?.category?.name} className="w-full text-white">
                       {CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                     </select>
                   </div>

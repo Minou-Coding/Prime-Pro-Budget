@@ -241,7 +241,7 @@
   <script>
     /* ========== AUTH LOGIC (Original Restoration) ========== */
     const GOOGLE = {
-      CLIENT_ID: "625395489880-fjlv00lsbaa4hn9p6e7ekmnof98fqfqc.apps.googleusercontent.com",
+      CLIENT_ID: "910313633485-js3ldfefrgtlc056i5t4go6r3b0ni0il.apps.googleusercontent.com",
       SCOPES: "https://www.googleapis.com/auth/drive.appdata openid email profile"
     };
     let accessToken = null, tokenClient = null, refreshTimer = null, accessTokenExpiry = 0;
@@ -318,7 +318,7 @@
 
   <script type="text/babel">
     /* ==================== LOGIQUE REACT (Original Logic + New Design) ==================== */
-    const { useState, useEffect, useRef } = React;
+    const { useState, useEffect, useRef, useMemo } = React;
     const Lucide = (props) => { useEffect(() => { if (window.lucide) window.lucide.createIcons() }, [props.icon]); return <i data-lucide={props.icon} className={props.className}></i> };
 
     /* --- Constants --- */
@@ -389,6 +389,38 @@
       return <div className="w-full h-64"><canvas ref={ref}></canvas></div>
     }
 
+    function DoughnutChart({ data, labels, colors }) {
+      const ref = useRef();
+      useEffect(() => {
+        if (!ref.current) return;
+        const ctx = ref.current.getContext("2d");
+        if (window.doughnutChart) window.doughnutChart.destroy();
+
+        window.doughnutChart = new window.Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: data,
+              backgroundColor: colors,
+              borderColor: '#0a0a0c',
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'right', labels: { color: '#fff' } }
+            }
+          }
+        });
+        return () => { if (window.doughnutChart) window.doughnutChart.destroy() }
+      }, [data]);
+
+      return <div className="w-full h-64"><canvas ref={ref}></canvas></div>
+    }
+
     function Sidebar({ view, setView, user }) {
       return (
         <aside className="sidebar h-full hidden md:flex">
@@ -423,7 +455,7 @@
             </button>
 
             <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest pl-2 mt-6 mb-2">Gestion</h3>
-            <button className="nav-btn" onClick={() => alert("Module en cours de dév")}>
+            <button className={`nav-btn ${view === 'stats' ? 'active' : ''}`} onClick={() => setView('stats')}>
               <ion-icon name="pie-chart-outline"></ion-icon> Statistiques
             </button>
             {user && (
@@ -451,6 +483,61 @@
       )
     }
 
+    function StatsView({ transactions }) {
+      // Calculate Expenses by Category
+      const expenses = transactions.filter(t => t.type === 'expense');
+      const catTotals = {};
+      expenses.forEach(t => {
+        const cName = t.category.name;
+        catTotals[cName] = (catTotals[cName] || 0) + Number(t.amount);
+      });
+
+      const labels = Object.keys(catTotals);
+      const data = Object.values(catTotals);
+      const colors = labels.map(l => CATEGORIES.find(c => c.name === l)?.color || '#fff');
+
+      // Top Spending
+      const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+      const topCat = sortedCats.length > 0 ? sortedCats[0] : null;
+
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="glass-panel p-6">
+              <h3 className="text-lg font-bold mb-4">Répartition des Dépenses</h3>
+              {expenses.length > 0 ? (
+                <DoughnutChart data={data} labels={labels} colors={colors} />
+              ) : (
+                <div className="text-center text-gray-500 py-10">Aucune donnée</div>
+              )}
+            </div>
+            <div className="glass-panel p-6 flex flex-col justify-center">
+              <h3 className="text-lg font-bold mb-4">Insights</h3>
+              {topCat ? (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                    <div className="text-xs text-[var(--text-muted)] uppercase">Top Catégorie</div>
+                    <div className="text-xl font-bold text-white flex items-center gap-2 mt-1">
+                      {topCat[0]}
+                      <span className="text-sm font-normal text-gray-400">({formatAmount(topCat[1])})</span>
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                    <div className="text-xs text-[var(--text-muted)] uppercase">Moyenne / Transaction</div>
+                    <div className="text-xl font-bold text-white mt-1">
+                      {formatAmount(expenses.length ? sum(expenses, t => t.amount) / expenses.length : 0)}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-gray-500">Pas assez de données</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     /* --- Main App --- */
     function App() {
       const [transactions, setTransactions] = useState([]);
@@ -465,7 +552,7 @@
         if (local) setTransactions(JSON.parse(local));
 
         // Listen for Auth
-        window.addEventListener("ONYX_SIGNED_IN", () => setUser({ email: "Connecté" })); // Mock user obj for now as client extraction is consistent
+        window.addEventListener("ONYX_SIGNED_IN", () => setUser({ email: "Connecté" }));
         window.addEventListener("ONYX_SIGNED_OUT", () => setUser(null));
         if (localStorage.getItem("onyx_google_authed") === "1") setUser({ email: "Utilisateur Cloud" });
       }, []);
@@ -496,6 +583,28 @@
         if (window.saveTransactionsToDrive && user) window.saveTransactionsToDrive(next);
       }
 
+      const handleExport = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(transactions, null, 2));
+        const link = document.createElement('a'); link.href = dataStr; link.download = "transactions.json"; link.click();
+      }
+
+      const handleImport = (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const json = JSON.parse(evt.target.result);
+            if (Array.isArray(json)) {
+              const next = sortTransactions(json);
+              setTransactions(next);
+              if (window.saveTransactionsToDrive && user) window.saveTransactionsToDrive(next);
+              alert("Import réussi !");
+            } else alert("Fichier invalide !");
+          } catch { alert("Erreur import JSON"); }
+        };
+        reader.readAsText(file);
+      }
+
       // Stats
       const income = sum(transactions.filter(t => t.type === 'income'), t => +t.amount);
       const expense = sum(transactions.filter(t => t.type === 'expense'), t => +t.amount);
@@ -509,13 +618,26 @@
             <header className="flex justify-between items-end mb-8">
               <div>
                 <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-                  {view === 'dashboard' ? 'Tableau de Bord' : 'Transactions'}
+                  {view === 'dashboard' ? 'Tableau de Bord' : (view === 'transactions' ? 'Transactions' : 'Statistiques')}
                 </h2>
                 <p className="text-[var(--text-muted)]">Votre situation financière en temps réel.</p>
               </div>
-              <button onClick={() => { setEditTx(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
-                <ion-icon name="add-circle"></ion-icon> Nouvelle Transaction
-              </button>
+              <div className="flex gap-3">
+                {view === 'transactions' && (
+                  <>
+                    <button onClick={handleExport} className="btn-secondary flex items-center gap-2" title="Exporter JSON">
+                      <ion-icon name="download-outline"></ion-icon>
+                    </button>
+                    <label className="btn-secondary flex items-center gap-2 cursor-pointer" title="Importer JSON">
+                      <ion-icon name="cloud-upload-outline"></ion-icon>
+                      <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+                    </label>
+                  </>
+                )}
+                <button onClick={() => { setEditTx(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
+                  <ion-icon name="add-circle"></ion-icon> Nouvelle Transaction
+                </button>
+              </div>
             </header>
 
             {/* Stats Row */}
@@ -525,7 +647,7 @@
               <StatCard label="Dépenses" value={formatAmount(expense)} icon="trending-down-outline" type="danger" />
             </div>
 
-            {/* Chart Area */}
+            {/* VIEW: DASHBOARD */}
             {view === 'dashboard' && (
               <div className="glass-panel p-6 mb-8">
                 <h3 className="text-lg font-bold mb-4">Évolution du Solde</h3>
@@ -533,50 +655,55 @@
               </div>
             )}
 
-            {/* Transactions List */}
-            <div className="glass-panel p-6">
-              <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <ion-icon name="list-outline"></ion-icon> Historique Récent
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-gray-400">
-                  <thead className="text-[var(--text-muted)] uppercase border-b border-white/10">
-                    <tr>
-                      <th className="pb-3 pl-2">Titre</th>
-                      <th className="pb-3">Catégorie</th>
-                      <th className="pb-3">Date</th>
-                      <th className="pb-3 text-right">Montant</th>
-                      <th className="pb-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {transactions.map(tx => (
-                      <tr key={tx.id} className="group hover:bg-white/5 transition">
-                        <td className="py-4 pl-2 font-medium text-white">{tx.title}</td>
-                        <td className="py-4">
-                          <span className="px-2 py-1 rounded-md bg-white/10 text-xs flex items-center gap-2 w-fit">
-                            <ion-icon name={tx.category.icon}></ion-icon> {tx.category.name}
-                          </span>
-                        </td>
-                        <td className="py-4">{formatDate(tx.date)}</td>
-                        <td className={`py-4 text-right font-bold ${tx.type === 'income' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                          {tx.type === 'income' ? '+' : '-'} {formatAmount(tx.amount)}
-                        </td>
-                        <td className="py-4">
-                          <div className="flex gap-2">
-                            <button onClick={() => { setEditTx(tx); setShowModal(true) }} className="p-2 hover:text-white transition"><ion-icon name="create-outline"></ion-icon></button>
-                            <button onClick={() => handleDelete(tx.id)} className="p-2 hover:text-red-500 transition"><ion-icon name="trash-outline"></ion-icon></button>
-                          </div>
-                        </td>
+            {/* VIEW: STATS */}
+            {view === 'stats' && <StatsView transactions={transactions} />}
+
+            {/* VIEW: TRANSACTIONS / DASHBOARD LIST */}
+            {(view === 'dashboard' || view === 'transactions') && (
+              <div className="glass-panel p-6">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                  <ion-icon name="list-outline"></ion-icon> {view === 'dashboard' ? 'Dernières Transactions' : 'Toutes les Transactions'}
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm text-gray-400">
+                    <thead className="text-[var(--text-muted)] uppercase border-b border-white/10">
+                      <tr>
+                        <th className="pb-3 pl-2">Titre</th>
+                        <th className="pb-3">Catégorie</th>
+                        <th className="pb-3">Date</th>
+                        <th className="pb-3 text-right">Montant</th>
+                        <th className="pb-3">Actions</th>
                       </tr>
-                    ))}
-                    {transactions.length === 0 && (
-                      <tr><td colSpan="5" className="text-center py-8">Aucune transaction</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {transactions.slice(0, view === 'dashboard' ? 5 : undefined).map(tx => (
+                        <tr key={tx.id} className="group hover:bg-white/5 transition">
+                          <td className="py-4 pl-2 font-medium text-white">{tx.title}</td>
+                          <td className="py-4">
+                            <span className="px-2 py-1 rounded-md bg-white/10 text-xs flex items-center gap-2 w-fit">
+                              <ion-icon name={tx.category.icon}></ion-icon> {tx.category.name}
+                            </span>
+                          </td>
+                          <td className="py-4">{formatDate(tx.date)}</td>
+                          <td className={`py-4 text-right font-bold ${tx.type === 'income' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                            {tx.type === 'income' ? '+' : '-'} {formatAmount(tx.amount)}
+                          </td>
+                          <td className="py-4">
+                            <div className="flex gap-2">
+                              <button onClick={() => { setEditTx(tx); setShowModal(true) }} className="p-2 hover:text-white transition"><ion-icon name="create-outline"></ion-icon></button>
+                              <button onClick={() => handleDelete(tx.id)} className="p-2 hover:text-red-500 transition"><ion-icon name="trash-outline"></ion-icon></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {transactions.length === 0 && (
+                        <tr><td colSpan="5" className="text-center py-8">Aucune transaction</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            )}
           </main>
 
           {/* MODAL */}

@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="fr" class="">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Budget Prime Pro+ | Suite V2</title>
+
+  <link rel="icon" type="image/png" href="https://i.ibb.co/ZzxjZCWW/6b98d931ff0e.png">
+  <link rel="apple-touch-icon" href="https://i.ibb.co/ZzxjZCWW/6b98d931ff0e.png">
+  <meta name="theme-color" content="#030304" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+
+  <!-- Libraries -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <style>
+    :root {
+      /* Core Palette from Prime Pro+ */
+      --bg-deep: #030304;
+      --bg-surface: #0a0a0c;
+      --primary: #D4AF37;
+      --primary-dim: rgba(212, 175, 55, 0.1);
+      --primary-glow: rgba(212, 175, 55, 0.4);
+
+      /* Text */
+      --text-main: #ffffff;
+      --text-muted: #888899;
+
+      /* Glassmorphism */
+      --glass-bg: rgba(20, 20, 25, 0.6);
+      --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+      --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+
+      /* Functional */
+      --success: #10B981;
+      --danger: #F43F5E;
+      --info: #3B82F6;
+
+      --sidebar-width: 280px;
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      outline: none;
+    }
+
+    body {
+      background-color: var(--bg-deep);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      background-image:
+        radial-gradient(circle at 10% 20%, rgba(212, 175, 55, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(100, 100, 255, 0.05) 0%, transparent 40%);
+    }
+
+    /* Ambient Noise */
+    body::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.4;
+    }
+
+    /* Common Components */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+
+    /* Button Overrides */
+    .btn,
+    button {
+      font-family: 'Outfit', sans-serif;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #000;
+      font-weight: 700;
+      padding: 10px 20px;
+      border-radius: 50px;
+      transition: all 0.2s;
+      box-shadow: 0 5px 15px rgba(212, 175, 55, 0.2);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(212, 175, 55, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-danger {
+      background: rgba(244, 63, 94, 0.1);
+      color: var(--danger);
+      border: 1px solid rgba(244, 63, 94, 0.2);
+    }
+
+    /* Inputs */
+    input,
+    select {
+      background: rgba(255, 255, 255, 0.03) !important;
+      border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      color: #fff !important;
+      border-radius: 10px !important;
+      padding: 10px !important;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: rgba(10, 10, 12, 0.7);
+      backdrop-filter: blur(20px);
+      border-right: var(--glass-border);
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+    }
+
+    .nav-btn {
+      width: 100%;
+      background: transparent;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 500;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s var(--ease-out);
+      position: relative;
+    }
+
+    .nav-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.03);
+      transform: translateX(4px);
+    }
+
+    .nav-btn.active {
+      color: #fff;
+      background: var(--primary-dim);
+      border: 1px solid rgba(212, 175, 55, 0.2);
+    }
+
+    .nav-btn.active::before {
+      content: '';
+      position: absolute;
+      left: -30px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 16px;
+      background: var(--primary);
+      border-radius: 0 4px 4px 0;
+    }
+
+    .nav-btn ion-icon,
+    .nav-btn i {
+      font-size: 1.1rem;
+      color: #666;
+      transition: 0.3s;
+    }
+
+    .nav-btn.active ion-icon,
+    .nav-btn.active i {
+      color: var(--primary);
+      filter: drop-shadow(0 0 8px var(--primary-glow));
+    }
+
+    /* Modal Overlay */
+    .modal-overlay {
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="root" style="width:100%; height:100%;"></div>
+
+  <script>
+    /* ========== AUTH LOGIC (Original Restoration) ========== */
+    const GOOGLE = {
+      CLIENT_ID: "910313633485-js3ldfefrgtlc056i5t4go6r3b0ni0il.apps.googleusercontent.com",
+      SCOPES: "https://www.googleapis.com/auth/drive.appdata openid email profile"
+    };
+    let accessToken = null, tokenClient = null, refreshTimer = null, accessTokenExpiry = 0;
+    function scheduleSilentRefresh(expiresInSec = 3600) {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      const delayMs = Math.max((expiresInSec - 120), 30) * 1000;
+      refreshTimer = setTimeout(() => { if (tokenClient) tokenClient.requestAccessToken({ prompt: "" }); }, delayMs);
+    }
+    function initGoogleAuth() {
+      if (!window.google || !google.accounts || !google.accounts.oauth2) { setTimeout(initGoogleAuth, 200); return; }
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE.CLIENT_ID, scope: GOOGLE.SCOPES, prompt: "",
+        callback: (resp) => {
+          if (resp.error) {
+            if (resp.error === 'interaction_required' || resp.error === 'consent_required') signOutGoogle();
+            return;
+          }
+          accessToken = resp.access_token;
+          const expires = Number(resp.expires_in || 3600);
+          accessTokenExpiry = Date.now() + expires * 1000;
+          localStorage.setItem("onyx_google_authed", "1");
+          window.dispatchEvent(new Event("ONYX_SIGNED_IN"));
+          scheduleSilentRefresh(expires);
+        }
+      });
+      if (localStorage.getItem("onyx_google_authed") === "1") {
+        try { tokenClient.requestAccessToken({ prompt: "" }); } catch (e) { localStorage.removeItem("onyx_google_authed"); }
+      }
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible" && accessToken) {
+          if (accessTokenExpiry - Date.now() < 120 * 1000) tokenClient?.requestAccessToken({ prompt: "" });
+        }
+      });
+    }
+    function signInWithGoogle() { tokenClient?.requestAccessToken({ prompt: "consent" }); }
+    function signOutGoogle() {
+      try { if (accessToken && window.google) google.accounts.oauth2.revoke(accessToken, () => { }); } catch (e) { }
+      accessToken = null; accessTokenExpiry = 0; if (refreshTimer) clearTimeout(refreshTimer);
+      localStorage.removeItem("onyx_google_authed");
+      window.dispatchEvent(new Event("ONYX_SIGNED_OUT"));
+    }
+    window.signInWithGoogle = signInWithGoogle;
+    window.signOutGoogle = signOutGoogle;
+    window.addEventListener("load", () => initGoogleAuth());
+
+    // Drive API
+    async function driveRequest(url, opts = {}) {
+      if (!accessToken) throw new Error("Non authentifié");
+      const headers = Object.assign({}, opts.headers || {}, { Authorization: `Bearer ${accessToken}` });
+      const res = await fetch(url, { ...opts, headers });
+      if (!res.ok) throw new Error(await res.text());
+      return res;
+    }
+    async function ensureAppDataFileId() {
+      const listRes = await driveRequest("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id,name)&q=name%20%3D%20%27onyx_transactions.json%27");
+      const data = await listRes.json();
+      if (data.files && data.files.length) return data.files[0].id;
+      const boundary = "-------314159265358979323846", delimiter = `--${boundary}\r\n`, closeDelim = `--${boundary}--`;
+      const metadata = { name: "onyx_transactions.json", parents: ["appDataFolder"] };
+      const body = delimiter + "Content-Type: application/json; charset=UTF-8\r\n\r\n" + JSON.stringify(metadata) + "\r\n" + delimiter + "Content-Type: application/json; charset=UTF-8\r\n\r\n" + "[]\r\n" + closeDelim;
+      const createRes = await driveRequest("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${boundary}` }, body });
+      const created = await createRes.json(); return created.id;
+    }
+    async function loadTransactionsFromDrive() {
+      const fileId = await ensureAppDataFileId();
+      const res = await driveRequest(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+      return await res.json();
+    }
+    async function saveTransactionsToDrive(transactions) {
+      const fileId = await ensureAppDataFileId();
+      await driveRequest(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(transactions) });
+    }
+  </script>
+
+  <script type="text/babel">
+    /* ==================== LOGIQUE REACT (Original Logic + New Design) ==================== */
+    const { useState, useEffect, useRef } = React;
+    const Lucide = (props) => { useEffect(() => { if (window.lucide) window.lucide.createIcons() }, [props.icon]); return <i data-lucide={props.icon} className={props.className}></i> };
+
+    /* --- Constants --- */
+    const CATEGORIES = [{ icon: "wallet", name: "Revenus", color: "#10b981" }, { icon: "shopping-cart", name: "Alimentation", color: "#00d9ff" }, { icon: "utensils", name: "Restaurants", color: "#ffb700" }, { icon: "coffee", name: "Cafés / Bars", color: "#ff006e" }, { icon: "home", name: "Logement", color: "#6366f1" }, { icon: "flame", name: "Énergie / Gaz", color: "#6366f1" }, { icon: "droplet", name: "Eau", color: "#0ea5e9" }, { icon: "wifi", name: "Internet / Télécom", color: "#6366f1" }, { icon: "phone", name: "Téléphone", color: "#6366f1" }, { icon: "car", name: "Voiture", color: "#2563eb" }, { icon: "bus", name: "Transports", color: "#22d3ee" }, { icon: "shopping-bag", name: "Shopping", color: "#f472b6" }, { icon: "gift", name: "Cadeaux", color: "#ef4444" }, { icon: "banknote", name: "Impôts", color: "#a21caf" }, { icon: "heart-pulse", name: "Santé", color: "#ef4444" }, { icon: "briefcase", name: "Travail", color: "#6366f1" }, { icon: "tv", name: "Abonnements", color: "#6366f1" }, { icon: "music", name: "Loisirs", color: "#a3e635" }, { icon: "star", name: "Bonus", color: "#facc15" }, { icon: "piggy-bank", name: "Épargne", color: "#10b981" }, { icon: "bug", name: "Imprévus", color: "#38bdf8" }, { icon: "smile", name: "Autre", color: "#d1d5db" }];
+    const formatAmount = n => Number(n).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+    const formatDate = d => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+    const sum = (arr, fn) => arr.reduce((a, c) => a + fn(c), 0);
+    const randomId = () => Math.random().toString(36).slice(2, 10);
+    const normalizeString = str => (str || "").toLowerCase().trim();
+    const sortTransactions = arr => { if (!Array.isArray(arr)) return []; return [...arr].sort((a, b) => new Date(b.date) - new Date(a.date)); }
+
+    function monthKeyFromDate(d) { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`; }
+    function formatMonthLabel(key) { const [y, m] = key.split('-').map(n => +n); const dt = new Date(y, m - 1, 1); return dt.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) }
+
+    /* --- Components --- */
+
+    function ChartComponent({ transactions }) {
+      const ref = useRef();
+      const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      useEffect(() => {
+        if (!ref.current) return;
+        const ctx = ref.current.getContext("2d");
+        if (window.myChart) window.myChart.destroy();
+
+        // Build daily balance
+        let balance = 0;
+        const labels = []; const data = [];
+        sorted.forEach(t => {
+          balance += (t.type === "income" ? +t.amount : -t.amount);
+          labels.push(formatDate(t.date));
+          data.push(balance);
+        });
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, "rgba(212, 175, 55, 0.4)");
+        gradient.addColorStop(1, "rgba(212, 175, 55, 0.0)");
+
+        window.myChart = new window.Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels.length ? labels : ["Deb"],
+            datasets: [{
+              label: "Solde",
+              data: data.length ? data : [0],
+              borderColor: "#D4AF37",
+              backgroundColor: gradient,
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4,
+              pointRadius: 0,
+              pointHoverRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: "#888" } },
+              y: { grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "#888" } }
+            }
+          }
+        });
+        return () => { if (window.myChart) window.myChart.destroy() }
+      }, [transactions]);
+
+      return <div className="w-full h-64"><canvas ref={ref}></canvas></div>
+    }
+
+    function Sidebar({ view, setView, user }) {
+      return (
+        <aside className="sidebar h-full hidden md:flex">
+          <div className="flex items-center gap-4 mb-10 pb-5 border-b border-white/10">
+            <img src="https://i.ibb.co/ZzxjZCWW/6b98d931ff0e.png" className="w-10 h-10 rounded-xl" style={{ border: '1px solid var(--primary)', boxShadow: '0 0 15px var(--primary-glow)' }} />
+            <h1 className="font-bold text-lg" style={{ background: 'linear-gradient(135deg, #fff, #aaa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Prime Pro+</h1>
+          </div>
+
+          {user ? (
+            <div className="flex items-center gap-3 mb-8 p-3 rounded-xl bg-white/5 border border-white/5">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-600 to-white flex items-center justify-center text-black font-bold">
+                {user.email[0].toUpperCase()}
+              </div>
+              <div className="overflow-hidden">
+                <div className="text-sm font-semibold truncate text-white">{user.email}</div>
+                <div className="text-xs text-[var(--success)] flex items-center gap-1"><ion-icon name="cloud-done"></ion-icon> Cloud Sync</div>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => window.signInWithGoogle()} className="mb-8 w-full btn-secondary text-sm flex items-center justify-center gap-2">
+              <ion-icon name="logo-google"></ion-icon> Connexion Cloud
+            </button>
+          )}
+
+          <nav className="space-y-2">
+            <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest pl-2 mb-2">Principal</h3>
+            <button className={`nav-btn ${view === 'dashboard' ? 'active' : ''}`} onClick={() => setView('dashboard')}>
+              <ion-icon name="grid-outline"></ion-icon> Tableau de Bord
+            </button>
+            <button className={`nav-btn ${view === 'transactions' ? 'active' : ''}`} onClick={() => setView('transactions')}>
+              <ion-icon name="swap-horizontal-outline"></ion-icon> Transactions
+            </button>
+
+            <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest pl-2 mt-6 mb-2">Gestion</h3>
+            <button className="nav-btn" onClick={() => alert("Module en cours de dév")}>
+              <ion-icon name="pie-chart-outline"></ion-icon> Statistiques
+            </button>
+            {user && (
+              <button className="nav-btn mt-auto" onClick={() => window.signOutGoogle()}>
+                <ion-icon name="log-out-outline"></ion-icon> Déconnexion
+              </button>
+            )}
+          </nav>
+        </aside>
+      )
+    }
+
+    function StatCard({ label, value, icon, type }) {
+      let colorClass = "text-white";
+      if (type === 'primary') colorClass = "text-[var(--primary)]";
+      if (type === 'success') colorClass = "text-[var(--success)]";
+      if (type === 'danger') colorClass = "text-[var(--danger)]";
+
+      return (
+        <div className="glass-panel p-6 relative overflow-hidden group hover:-translate-y-1 transition duration-300">
+          <div className="absolute top-4 right-4 text-3xl opacity-10 text-white"><ion-icon name={icon}></ion-icon></div>
+          <div className="text-sm text-[var(--text-muted)] uppercase tracking-wider mb-2">{label}</div>
+          <div className={`text-2xl font-bold ${colorClass}`}>{value}</div>
+        </div>
+      )
+    }
+
+    /* --- Main App --- */
+    function App() {
+      const [transactions, setTransactions] = useState([]);
+      const [view, setView] = useState('dashboard');
+      const [user, setUser] = useState(null);
+      const [showModal, setShowModal] = useState(false);
+      const [editTx, setEditTx] = useState(null);
+
+      // Initial Load
+      useEffect(() => {
+        const local = localStorage.getItem("onyx_budget_v2");
+        if (local) setTransactions(JSON.parse(local));
+
+        // Listen for Auth
+        window.addEventListener("ONYX_SIGNED_IN", () => setUser({ email: "Connecté" })); // Mock user obj for now as client extraction is consistent
+        window.addEventListener("ONYX_SIGNED_OUT", () => setUser(null));
+        if (localStorage.getItem("onyx_google_authed") === "1") setUser({ email: "Utilisateur Cloud" });
+      }, []);
+
+      // Persistence
+      useEffect(() => {
+        localStorage.setItem("onyx_budget_v2", JSON.stringify(transactions));
+      }, [transactions]);
+
+      // Handlers
+      const handleSave = (tx) => {
+        let next = [...transactions];
+        if (editTx) {
+          next = next.map(t => t.id === tx.id ? tx : t);
+        } else {
+          next.push({ ...tx, id: randomId() });
+        }
+        next.sort((a, b) => new Date(b.date) - new Date(a.date));
+        setTransactions(next);
+        setShowModal(false);
+        if (window.saveTransactionsToDrive && user) window.saveTransactionsToDrive(next);
+      };
+
+      const handleDelete = (id) => {
+        if (!confirm("Supprimer ?")) return;
+        const next = transactions.filter(t => t.id !== id);
+        setTransactions(next);
+        if (window.saveTransactionsToDrive && user) window.saveTransactionsToDrive(next);
+      }
+
+      // Stats
+      const income = sum(transactions.filter(t => t.type === 'income'), t => +t.amount);
+      const expense = sum(transactions.filter(t => t.type === 'expense'), t => +t.amount);
+      const balance = income - expense;
+
+      return (
+        <div className="flex h-screen w-full text-white">
+          <Sidebar view={view} setView={setView} user={user} />
+
+          <main className="flex-1 overflow-y-auto p-8 relative">
+            <header className="flex justify-between items-end mb-8">
+              <div>
+                <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+                  {view === 'dashboard' ? 'Tableau de Bord' : 'Transactions'}
+                </h2>
+                <p className="text-[var(--text-muted)]">Votre situation financière en temps réel.</p>
+              </div>
+              <button onClick={() => { setEditTx(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
+                <ion-icon name="add-circle"></ion-icon> Nouvelle Transaction
+              </button>
+            </header>
+
+            {/* Stats Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <StatCard label="Solde Total" value={formatAmount(balance)} icon="wallet-outline" type="primary" />
+              <StatCard label="Revenus" value={formatAmount(income)} icon="trending-up-outline" type="success" />
+              <StatCard label="Dépenses" value={formatAmount(expense)} icon="trending-down-outline" type="danger" />
+            </div>
+
+            {/* Chart Area */}
+            {view === 'dashboard' && (
+              <div className="glass-panel p-6 mb-8">
+                <h3 className="text-lg font-bold mb-4">Évolution du Solde</h3>
+                <ChartComponent transactions={transactions} />
+              </div>
+            )}
+
+            {/* Transactions List */}
+            <div className="glass-panel p-6">
+              <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                <ion-icon name="list-outline"></ion-icon> Historique Récent
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-gray-400">
+                  <thead className="text-[var(--text-muted)] uppercase border-b border-white/10">
+                    <tr>
+                      <th className="pb-3 pl-2">Titre</th>
+                      <th className="pb-3">Catégorie</th>
+                      <th className="pb-3">Date</th>
+                      <th className="pb-3 text-right">Montant</th>
+                      <th className="pb-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {transactions.map(tx => (
+                      <tr key={tx.id} className="group hover:bg-white/5 transition">
+                        <td className="py-4 pl-2 font-medium text-white">{tx.title}</td>
+                        <td className="py-4">
+                          <span className="px-2 py-1 rounded-md bg-white/10 text-xs flex items-center gap-2 w-fit">
+                            <ion-icon name={tx.category.icon}></ion-icon> {tx.category.name}
+                          </span>
+                        </td>
+                        <td className="py-4">{formatDate(tx.date)}</td>
+                        <td className={`py-4 text-right font-bold ${tx.type === 'income' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                          {tx.type === 'income' ? '+' : '-'} {formatAmount(tx.amount)}
+                        </td>
+                        <td className="py-4">
+                          <div className="flex gap-2">
+                            <button onClick={() => { setEditTx(tx); setShowModal(true) }} className="p-2 hover:text-white transition"><ion-icon name="create-outline"></ion-icon></button>
+                            <button onClick={() => handleDelete(tx.id)} className="p-2 hover:text-red-500 transition"><ion-icon name="trash-outline"></ion-icon></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {transactions.length === 0 && (
+                      <tr><td colSpan="5" className="text-center py-8">Aucune transaction</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </main>
+
+          {/* MODAL */}
+          {showModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay">
+              <div className="glass-panel p-8 w-full max-w-lg relative bg-[#0a0a0c]">
+                <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-2xl hover:text-red-500"><ion-icon name="close-outline"></ion-icon></button>
+                <h2 className="text-2xl font-bold mb-6 text-white">{editTx ? "Modifier" : "Ajouter"}</h2>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.target);
+                  const catName = fd.get('category');
+                  const catObj = CATEGORIES.find(c => c.name === catName) || CATEGORIES[0];
+                  handleSave({
+                    id: editTx?.id,
+                    title: fd.get('title'),
+                    amount: fd.get('amount'),
+                    type: fd.get('type'),
+                    category: catObj,
+                    date: fd.get('date') || new Date().toISOString().split('T')[0]
+                  });
+                }} className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-[var(--text-muted)] mb-1">Titre</label>
+                    <input name="title" required defaultValue={editTx?.title} className="w-full" placeholder="Ex: Salaire, Courses..." autoFocus />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-[var(--text-muted)] mb-1">Montant</label>
+                      <input name="amount" type="number" step="0.01" required defaultValue={editTx?.amount} className="w-full" placeholder="0.00" />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-[var(--text-muted)] mb-1">Type</label>
+                      <select name="type" defaultValue={editTx?.type || "expense"} className="w-full">
+                        <option value="expense">Dépense (Sortie)</option>
+                        <option value="income">Revenu (Entrée)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-[var(--text-muted)] mb-1">Catégorie</label>
+                    <select name="category" defaultValue={editTx?.category?.name} className="w-full">
+                      {CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-[var(--text-muted)] mb-1">Date</label>
+                    <input name="date" type="date" defaultValue={editTx?.date ? new Date(editTx.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]} className="w-full" />
+                  </div>
+
+                  <button type="submit" className="w-full btn-primary mt-4 flex justify-center items-center gap-2">
+                    <ion-icon name="checkmark-circle"></ion-icon> Sauvegarder
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+
+</html>

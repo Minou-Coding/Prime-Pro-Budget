@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Budget Prime Pro+ | Suite V2</title>
+  <title>Prime Pro+ Budget | Suite V2</title>
 
   <link rel="icon" type="image/png" href="https://i.ibb.co/ZzxjZCWW/6b98d931ff0e.png">
   <link rel="apple-touch-icon" href="https://i.ibb.co/ZzxjZCWW/6b98d931ff0e.png">
@@ -181,6 +181,18 @@
       padding: 12px;
     }
 
+    /* Fix Calendar Icon Visibility */
+    ::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      opacity: 0.6;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    ::-webkit-calendar-picker-indicator:hover {
+      opacity: 1;
+    }
+
     /* Sidebar */
     .sidebar {
       width: var(--sidebar-width);
@@ -251,6 +263,59 @@
     .modal-overlay {
       background: rgba(0, 0, 0, 0.8);
       backdrop-filter: blur(5px);
+    }
+
+    /* Custom Select */
+    .custom-select-trigger {
+      background: rgba(20, 20, 20, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .custom-select-trigger:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .custom-options {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 100%;
+      background: #0a0a0c;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      margin-top: 5px;
+      max-height: 250px;
+      overflow-y: auto;
+      z-index: 50;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .custom-option {
+      padding: 12px 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: 0.2s;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    }
+
+    .custom-option:hover {
+      background: rgba(255, 255, 255, 0.05);
+      padding-left: 18px;
+    }
+
+    .custom-option.selected {
+      color: var(--primary);
+      background: rgba(212, 175, 55, 0.05);
     }
   </style>
 </head>
@@ -345,6 +410,7 @@
     /* --- Constants & Setup --- */
     const CATEGORIES = [
       { icon: "wallet-outline", name: "Revenus", color: "#10b981" },         // Emerald
+      { icon: "card-outline", name: "Crédit", color: "#607d8b" },            // Blue Grey
       { icon: "cart-outline", name: "Alimentation", color: "#3b82f6" }, // Blue
       { icon: "restaurant-outline", name: "Restaurants", color: "#f59e0b" },     // Amber
       { icon: "beer-outline", name: "Cafés / Bars", color: "#ec4899" },      // Pink
@@ -375,7 +441,7 @@
     const normalizeString = str => (str || "").toLowerCase().trim();
     const sortTransactions = arr => { if (!Array.isArray(arr)) return []; return [...arr].sort((a, b) => new Date(b.date) - new Date(a.date)); }
 
-    /* --- Date Management Helpers --- */
+    /* --- Year-Month Key helpers --- */
     function monthKeyFromDate(d) { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`; }
     function formatMonthLabel(key) { const [y, m] = key.split('-').map(n => +n); const dt = new Date(y, m - 1, 1); return dt.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) }
     function setDateToMonth(dateStr, y, m) {
@@ -383,11 +449,6 @@
       d.setFullYear(y);
       d.setMonth(m - 1);
       return d.toISOString().split('T')[0];
-    }
-    function addMonthsClamped(date, months) {
-      const d = new Date(date);
-      d.setMonth(d.getMonth() + months);
-      return d;
     }
     function getMonthsWithData(transactions) {
       const map = {};
@@ -398,29 +459,104 @@
         if (t.type === 'income') map[key].totalIn += +t.amount;
         else map[key].totalOut += +t.amount;
       });
-      return Object.values(map).sort((a, b) => b.key.localeCompare(a.key)); // Newest key (bigger) first
+      return Object.values(map).sort((a, b) => b.key.localeCompare(a.key));
     }
 
     /* --- Components --- */
 
-    function ChartComponent({ transactions }) {
+    // Custom Select Component for Categories
+    function CustomSelect({ options, value, onChange, name }) {
+      const [isOpen, setIsOpen] = useState(false);
+      const ref = useRef(null);
+
+      const selectedOption = options.find(o => o.name === value) || options[0];
+
+      // Close on click outside
+      useEffect(() => {
+        function handleClickOutside(event) {
+          if (ref.current && !ref.current.contains(event.target)) {
+            setIsOpen(false);
+          }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+      }, [ref]);
+
+      return (
+        <div className="relative" ref={ref}>
+          {/* Hidden input for FormData compatibility */}
+          <input type="hidden" name={name} value={selectedOption.name} />
+
+          <div
+            className="custom-select-trigger"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            <div className="flex items-center gap-3">
+              <ion-icon name={selectedOption.icon} style={{ color: selectedOption.color, fontSize: '1.2rem' }}></ion-icon>
+              <span className="font-medium text-white">{selectedOption.name}</span>
+            </div>
+            <ion-icon name="chevron-down-outline" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: '0.2s', color: '#666' }}></ion-icon>
+          </div>
+
+          {isOpen && (
+            <div className="custom-options">
+              {options.map(opt => (
+                <div
+                  key={opt.name}
+                  className={`custom-option ${opt.name === value ? 'selected' : ''}`}
+                  onClick={() => {
+                    onChange(opt.name);
+                    setIsOpen(false);
+                  }}
+                >
+                  <ion-icon name={opt.icon} style={{ color: opt.color, fontSize: '1.2rem' }}></ion-icon>
+                  <span className={opt.name === value ? 'font-bold' : 'text-gray-300'}>{opt.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function ChartComponent({ transactions, monthKey }) {
       const ref = useRef();
-      // Sort ascending for chart
-      const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
 
       useEffect(() => {
         if (!ref.current) return;
         const ctx = ref.current.getContext("2d");
         if (window.myChart) window.myChart.destroy();
 
-        // Build daily balance
-        let balance = 0;
-        const labels = []; const data = [];
-        sorted.forEach(t => {
-          balance += (t.type === "income" ? +t.amount : -t.amount);
-          labels.push(formatDate(t.date));
-          data.push(balance);
-        });
+        // 1. Determine days in month
+        const [y, m] = monthKey.split('-').map(Number);
+        const daysInMonth = new Date(y, m, 0).getDate();
+
+        // Calculate total income for the month for scale max
+        const totalIncome = transactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+
+        // Build daily data
+        const labels = [];
+        const data = [];
+        let currentBalance = 0;
+
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          const dayLabel = new Date(dateStr).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+          labels.push(dayLabel);
+
+          // Find transactions for this day using Local Time comparison
+          const dayTxs = transactions.filter(t => {
+            const tDate = new Date(t.date);
+            return tDate.getFullYear() === y && (tDate.getMonth() + 1) === m && tDate.getDate() === d;
+          });
+
+          dayTxs.forEach(t => {
+            currentBalance += (t.type === "income" ? +t.amount : -t.amount);
+          });
+          data.push(currentBalance);
+        }
 
         const gradient = ctx.createLinearGradient(0, 0, 0, 400);
         gradient.addColorStop(0, "rgba(212, 175, 55, 0.4)");
@@ -429,10 +565,10 @@
         window.myChart = new window.Chart(ctx, {
           type: "line",
           data: {
-            labels: labels.length ? labels : ["Deb"],
+            labels: labels,
             datasets: [{
               label: "Solde",
-              data: data.length ? data : [0],
+              data: data,
               borderColor: "#D4AF37",
               backgroundColor: gradient,
               borderWidth: 2,
@@ -447,18 +583,30 @@
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-              x: { grid: { display: false }, ticks: { color: "#888" } },
-              y: { grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "#888" } }
+              x: {
+                grid: { display: false },
+                ticks: {
+                  color: "#888",
+                  autoSkip: false,
+                  maxRotation: 45,
+                  minRotation: 0
+                }
+              },
+              y: {
+                grid: { color: "rgba(255,255,255,0.05)" },
+                ticks: { color: "#888" },
+                suggestedMax: totalIncome > 0 ? totalIncome : undefined // Set max to income if available
+              }
             }
           }
         });
         return () => { if (window.myChart) window.myChart.destroy() }
-      }, [transactions]);
+      }, [transactions, monthKey]);
 
       return <div className="w-full h-64"><canvas ref={ref}></canvas></div>
     }
 
-    function DoughnutChart({ data, labels, colors }) {
+    function DoughnutChart({ data, labels, colors, options }) {
       const ref = useRef();
       useEffect(() => {
         if (!ref.current) return;
@@ -479,13 +627,11 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-              legend: { position: 'right', labels: { color: '#fff' } }
-            }
+            ...options
           }
         });
         return () => { if (window.doughnutChart) window.doughnutChart.destroy() }
-      }, [data]);
+      }, [data, options]);
 
       return <div className="w-full h-64"><canvas ref={ref}></canvas></div>
     }
@@ -495,7 +641,7 @@
         <aside className="sidebar h-full hidden md:flex">
           <div className="flex items-center gap-4 mb-10 pb-5 border-b border-white/10">
             <img src="https://i.ibb.co/ZzxjZCWW/6b98d931ff0e.png" className="w-10 h-10 rounded-xl" style={{ border: '1px solid var(--primary)', boxShadow: '0 0 15px var(--primary-glow)' }} />
-            <h1 className="font-bold text-lg" style={{ background: 'linear-gradient(135deg, #fff, #aaa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Prime Pro+</h1>
+            <h1 className="font-bold text-lg" style={{ background: 'linear-gradient(135deg, #fff, #aaa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Prime Pro+ Budget</h1>
           </div>
 
           {user ? (
@@ -545,7 +691,7 @@
 
       return (
         <div className="glass-panel p-6 relative overflow-hidden group hover:-translate-y-1 transition duration-300">
-          <div className="absolute top-4 right-4 text-3xl opacity-10 text-white"><ion-icon name={icon}></ion-icon></div>
+          <div className="absolute top-4 right-4 text-3xl text-white/50"><ion-icon name={icon}></ion-icon></div>
           <div className="text-sm text-[var(--text-muted)] uppercase tracking-wider mb-2">{label}</div>
           <div className={`text-2xl font-bold ${colorClass}`}>{value}</div>
         </div>
@@ -553,35 +699,40 @@
     }
 
     function StatsView({ transactions, monthKey }) {
-      // Calculate Expenses by Category
       const expenses = transactions.filter(t => t.type === 'expense');
       const catTotals = {};
-      expenses.forEach(t => {
-        const cName = t.category.name;
-        catTotals[cName] = (catTotals[cName] || 0) + Number(t.amount);
-      });
-
+      expenses.forEach(t => { const cName = t.category.name; catTotals[cName] = (catTotals[cName] || 0) + Number(t.amount); });
       const labels = Object.keys(catTotals);
       const data = Object.values(catTotals);
       const colors = labels.map(l => CATEGORIES.find(c => c.name === l)?.color || '#fff');
-
-      // Top Spending
       const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
       const topCat = sortedCats.length > 0 ? sortedCats[0] : null;
 
       return (
         <div className="space-y-6">
-          {/* Header within Stats View to show what we are looking at */}
           <div className="text-sm text-[var(--text-muted)] mb-2">Statistiques pour {formatMonthLabel(monthKey)}</div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="glass-panel p-6">
               <h3 className="text-lg font-bold mb-4">Répartition des Dépenses</h3>
-              {expenses.length > 0 ? (
-                <DoughnutChart data={data} labels={labels} colors={colors} />
-              ) : (
-                <div className="text-center text-gray-500 py-10">Aucune donnée pour ce mois</div>
-              )}
+              {expenses.length ? (
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                  <div className="w-full md:w-1/2 h-64">
+                    <DoughnutChart data={data} labels={labels} colors={colors} options={{ plugins: { legend: { display: false } } }} />
+                  </div>
+                  <div className="w-full md:w-1/2 space-y-3 max-h-64 overflow-y-auto pr-2">
+                    {labels.map((name, i) => {
+                      const cat = CATEGORIES.find(c => c.name === name) || { icon: 'alert-circle', color: '#666' };
+                      return (
+                        <div key={name} className="flex items-center gap-3 text-sm text-gray-300">
+                          <ion-icon name={cat.icon} style={{ color: cat.color, fontSize: '1.2rem' }}></ion-icon>
+                          <span className="flex-1 truncate">{name}</span>
+                          <span className="font-bold text-white">{formatAmount(data[i])}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : <div className="text-center text-gray-500 py-10">Aucune donnée pour ce mois</div>}
             </div>
             <div className="glass-panel p-6 flex flex-col justify-center">
               <h3 className="text-lg font-bold mb-4">Insights</h3>
@@ -601,46 +752,32 @@
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className="text-center text-gray-500">Pas assez de données</div>
-              )}
+              ) : <div className="text-center text-gray-500">Pas assez de données</div>}
             </div>
           </div>
         </div>
       )
     }
 
-    // Modal to Copy Months
     function DuplicateModal({ show, onClose, months, currentMonth, onDuplicate }) {
       const [targetMonth, setTargetMonth] = useState("");
-
       useEffect(() => {
-        // Default target: month after current
         if (currentMonth) {
           const [y, m] = currentMonth.split('-').map(Number);
-          const next = new Date(y, m, 1); // JS Month is 0-indexed, so m (1-12) works as next month index
-          const nextStr = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`;
-          setTargetMonth(nextStr);
+          const next = new Date(y, m, 1);
+          setTargetMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
         }
       }, [currentMonth, show]);
-
       if (!show) return null;
-
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay">
           <div className="glass-panel p-8 w-full max-w-md bg-[#0a0a0c]">
             <h2 className="text-xl font-bold mb-4 text-white">Dupliquer le Mois</h2>
             <p className="text-gray-400 mb-6 text-sm">Copier toutes les transactions de <b>{formatMonthLabel(currentMonth)}</b> vers :</p>
-
             <input type="month" className="w-full mb-6" value={targetMonth} onChange={e => setTargetMonth(e.target.value)} />
-
             <div className="flex gap-3">
               <button onClick={onClose} className="btn-secondary w-full">Annuler</button>
-              <button onClick={() => {
-                if (!targetMonth) return;
-                const [ty, tm] = targetMonth.split('-').map(Number);
-                onDuplicate(ty, tm);
-              }} className="btn-primary w-full">Confirmer</button>
+              <button onClick={() => { if (!targetMonth) return; const [ty, tm] = targetMonth.split('-').map(Number); onDuplicate(ty, tm); }} className="btn-primary w-full">Confirmer</button>
             </div>
           </div>
         </div>
@@ -654,35 +791,33 @@
       const [user, setUser] = useState(null);
       const [showModal, setShowModal] = useState(false);
       const [editTx, setEditTx] = useState(null);
-
-      // Month Management State
       const [monthFilter, setMonthFilter] = useState(monthKeyFromDate(new Date()));
       const [showDupModal, setShowDupModal] = useState(false);
 
-      // Initial Load
+      // State Controlled Form for Modal
+      const [formData, setFormData] = useState({ categoryName: CATEGORIES[0].name });
+
       useEffect(() => {
         const local = localStorage.getItem("onyx_budget_v2");
         if (local) setTransactions(JSON.parse(local));
-
-        // Listen for Auth
         window.addEventListener("ONYX_SIGNED_IN", () => setUser({ email: "Connecté" }));
         window.addEventListener("ONYX_SIGNED_OUT", () => setUser(null));
         if (localStorage.getItem("onyx_google_authed") === "1") setUser({ email: "Utilisateur Cloud" });
       }, []);
 
-      // Persistence
-      useEffect(() => {
-        localStorage.setItem("onyx_budget_v2", JSON.stringify(transactions));
-      }, [transactions]);
+      useEffect(() => { localStorage.setItem("onyx_budget_v2", JSON.stringify(transactions)); }, [transactions]);
 
-      // Handlers
+      // When opening modal, sync state
+      useEffect(() => {
+        if (showModal) {
+          setFormData({ categoryName: editTx ? editTx.category.name : CATEGORIES[0].name });
+        }
+      }, [showModal, editTx]);
+
       const handleSave = (tx) => {
         let next = [...transactions];
-        if (editTx) {
-          next = next.map(t => t.id === tx.id ? tx : t);
-        } else {
-          next.push({ ...tx, id: randomId() });
-        }
+        if (editTx) next = next.map(t => t.id === tx.id ? tx : t);
+        else next.push({ ...tx, id: randomId() });
         next.sort((a, b) => new Date(b.date) - new Date(a.date));
         setTransactions(next);
         setShowModal(false);
@@ -697,8 +832,9 @@
       }
 
       const handleExport = () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(transactions, null, 2));
-        const link = document.createElement('a'); link.href = dataStr; link.download = "transactions.json"; link.click();
+        const link = document.createElement('a');
+        link.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(transactions, null, 2));
+        link.download = "transactions.json"; link.click();
       }
 
       const handleImport = (e) => {
@@ -721,56 +857,31 @@
       const handleDuplicateMonth = (targetYear, targetMonth) => {
         const toCopy = transactions.filter(t => monthKeyFromDate(t.date) === monthFilter);
         if (!toCopy.length) { alert("Rien à copier !"); return; }
-
-        const clones = toCopy.map(t => ({
-          ...t,
-          id: randomId(),
-          date: setDateToMonth(t.date, targetYear, targetMonth)
-        }));
-
+        const clones = toCopy.map(t => ({ ...t, id: randomId(), date: setDateToMonth(t.date, targetYear, targetMonth) }));
         const next = sortTransactions([...transactions, ...clones]);
         setTransactions(next);
         if (window.saveTransactionsToDrive && user) window.saveTransactionsToDrive(next);
-
         setShowDupModal(false);
         setMonthFilter(`${targetYear}-${String(targetMonth).padStart(2, '0')}`);
         alert("Mois dupliqué avec succès !");
       };
 
-      // NEW: DELETE MOIS LOGIC
       const handleDeleteMonth = (key) => {
         const count = transactions.filter(t => monthKeyFromDate(t.date) === key).length;
         if (count === 0) return;
-
-        if (!confirm(`Voulez-vous vraiment supprimer TOUTES les ${count} transactions de ${formatMonthLabel(key)} ?\nCette action est irréversible.`)) return;
-
+        if (!confirm(`Supprimer TOUTES les ${count} transactions de ${formatMonthLabel(key)} ?`)) return;
         const next = transactions.filter(t => monthKeyFromDate(t.date) !== key);
         setTransactions(next);
         if (window.saveTransactionsToDrive && user) window.saveTransactionsToDrive(next);
-
-        // Switch to current month or first available
         setMonthFilter(monthKeyFromDate(new Date()));
       };
 
-      // Derived Data
       const availableMonths = getMonthsWithData(transactions);
-
-      // Sorting Logic for Select: Ensure List is STRICTLY sorted (Newest -> Oldest)
-      // availableMonths is already sorted DESC by getMonthsWithData
-      // We just need to make sure the currently selected month is included if it has no data
       const optionsList = [...availableMonths];
-      if (!optionsList.find(m => m.key === monthFilter)) {
-        const d = new Date(monthFilter + "-01");
-        // Add purely for display logic, sorted insert not strictly necessary as it will just be selected
-        // But for cleanliness let's just prepend if it's "future" or "current" and empty
-        optionsList.unshift({ key: monthFilter, label: formatMonthLabel(monthFilter) });
-      }
-      // Re-sort to be safe so dropdown is always perfect
+      if (!optionsList.find(m => m.key === monthFilter)) optionsList.unshift({ key: monthFilter, label: formatMonthLabel(monthFilter) });
       optionsList.sort((a, b) => b.key.localeCompare(a.key));
 
-      // Filter transactions for current View
       const displayedTransactions = transactions.filter(t => monthKeyFromDate(t.date) === monthFilter);
-
       const income = sum(displayedTransactions.filter(t => t.type === 'income'), t => +t.amount);
       const expense = sum(displayedTransactions.filter(t => t.type === 'expense'), t => +t.amount);
       const balance = income - expense;
@@ -778,7 +889,6 @@
       return (
         <div className="flex h-screen w-full text-white">
           <Sidebar view={view} setView={setView} user={user} />
-
           <main className="flex-1 overflow-y-auto p-8 relative">
             <header className="flex justify-between items-end mb-8">
               <div>
@@ -792,65 +902,49 @@
                     onChange={(e) => setMonthFilter(e.target.value)}
                     className="bg-white/10 border-none text-white text-sm rounded-lg px-2 py-1 outline-none font-bold cursor-pointer"
                   >
-                    {optionsList.map(m => (
-                      <option key={m.key} value={m.key}>{m.label}</option>
-                    ))}
+                    {optionsList.map(m => (<option key={m.key} value={m.key}>{m.label}</option>))}
                   </select>
-
-                  {/* TRASH BUTTON FOR MONTH */}
                   {displayedTransactions.length > 0 && (
-                    <button
-                      onClick={() => handleDeleteMonth(monthFilter)}
-                      className="p-2 text-white/40 hover:text-[var(--danger)] transition rounded-lg hover:bg-white/5"
-                      title="Supprimer ce mois (toutes les transactions)"
-                    >
+                    <button onClick={() => handleDeleteMonth(monthFilter)} className="p-2 text-white/40 hover:text-[var(--danger)] transition rounded-lg hover:bg-white/5" title="Supprimer ce mois">
                       <ion-icon name="trash-outline"></ion-icon>
                     </button>
                   )}
                 </div>
               </div>
               <div className="flex gap-3">
-                <button onClick={() => setShowDupModal(true)} className="btn-secondary flex items-center gap-2" title="Dupliquer ce mois">
+                <button onClick={() => setShowDupModal(true)} className="btn-secondary flex items-center gap-2" title="Dupliquer">
                   <ion-icon name="copy-outline"></ion-icon> Dupliquer
                 </button>
-
                 {view === 'transactions' && (
                   <>
-                    <button onClick={handleExport} className="btn-secondary flex items-center gap-2" title="Exporter JSON">
-                      <ion-icon name="download-outline"></ion-icon>
-                    </button>
-                    <label className="btn-secondary flex items-center gap-2 cursor-pointer" title="Importer JSON">
+                    <button onClick={handleExport} className="btn-secondary flex items-center gap-2"><ion-icon name="download-outline"></ion-icon></button>
+                    <label className="btn-secondary flex items-center gap-2 cursor-pointer">
                       <ion-icon name="cloud-upload-outline"></ion-icon>
                       <input type="file" accept=".json" onChange={handleImport} className="hidden" />
                     </label>
                   </>
                 )}
                 <button onClick={() => { setEditTx(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
-                  {/* Increased boldness and size for the plus icon */}
                   <ion-icon name="add-circle" class="text-xl md:text-2xl font-bold"></ion-icon> <span className="font-bold">Transaction</span>
                 </button>
               </div>
             </header>
 
-            {/* Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <StatCard label={`Solde (${formatMonthLabel(monthFilter)})`} value={formatAmount(balance)} icon="wallet-outline" type="primary" />
               <StatCard label="Revenus" value={formatAmount(income)} icon="trending-up-outline" type="success" />
               <StatCard label="Dépenses" value={formatAmount(expense)} icon="trending-down-outline" type="danger" />
             </div>
 
-            {/* VIEW: DASHBOARD */}
             {view === 'dashboard' && (
               <div className="glass-panel p-6 mb-8">
-                <h3 className="text-lg font-bold mb-4">Évolution du Solde ({formatMonthLabel(monthFilter)})</h3>
-                <ChartComponent transactions={displayedTransactions} />
+                <h3 className="text-lg font-bold mb-4">Évolution du Solde</h3>
+                <ChartComponent transactions={displayedTransactions} monthKey={monthFilter} />
               </div>
             )}
 
-            {/* VIEW: STATS */}
             {view === 'stats' && <StatsView transactions={displayedTransactions} monthKey={monthFilter} />}
 
-            {/* VIEW: TRANSACTIONS / DASHBOARD LIST */}
             {(view === 'dashboard' || view === 'transactions') && (
               <div className="glass-panel p-6">
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -872,9 +966,14 @@
                         <tr key={tx.id} className="group hover:bg-white/5 transition">
                           <td className="py-4 pl-2 font-medium text-white">{tx.title}</td>
                           <td className="py-4">
-                            <span className="px-2 py-1 rounded-md bg-white/10 text-xs flex items-center gap-2 w-fit">
-                              <ion-icon name={tx.category.icon}></ion-icon> {tx.category.name}
-                            </span>
+                            {(() => {
+                              const cat = CATEGORIES.find(c => c.name === tx.category.name) || { icon: 'alert-circle-outline', color: '#666', name: tx.category.name };
+                              return (
+                                <span className="px-2 py-1 rounded-md bg-white/10 text-xs flex items-center gap-2 w-fit">
+                                  <ion-icon name={cat.icon} style={{ color: cat.color }}></ion-icon> {cat.name}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="py-4">{formatDate(tx.date)}</td>
                           <td className={`py-4 text-right font-bold ${tx.type === 'income' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
@@ -888,9 +987,7 @@
                           </td>
                         </tr>
                       ))}
-                      {displayedTransactions.length === 0 && (
-                        <tr><td colSpan="5" className="text-center py-8">Aucune transaction pour ce mois</td></tr>
-                      )}
+                      {displayedTransactions.length === 0 && <tr><td colSpan="5" className="text-center py-8">Aucune transaction</td></tr>}
                     </tbody>
                   </table>
                 </div>
@@ -898,7 +995,6 @@
             )}
           </main>
 
-          {/* MODAL TRANSACTION */}
           {showModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay">
               <div className="glass-panel p-8 w-full max-w-lg relative bg-[#0a0a0c]">
@@ -938,9 +1034,12 @@
                   </div>
                   <div>
                     <label className="block text-sm text-[var(--text-muted)] mb-1">Catégorie</label>
-                    <select name="category" defaultValue={editTx?.category?.name} className="w-full text-white">
-                      {CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                    </select>
+                    <CustomSelect
+                      name="category"
+                      options={CATEGORIES}
+                      value={formData.categoryName}
+                      onChange={(val) => setFormData({ ...formData, categoryName: val })}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm text-[var(--text-muted)] mb-1">Date</label>
@@ -955,7 +1054,6 @@
             </div>
           )}
 
-          {/* MODAL DUPLICATE */}
           <DuplicateModal
             show={showDupModal}
             onClose={() => setShowDupModal(false)}

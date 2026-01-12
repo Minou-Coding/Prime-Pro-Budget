@@ -636,7 +636,7 @@
       return <div className="w-full h-64"><canvas ref={ref}></canvas></div>
     }
 
-    function Sidebar({ view, setView, user }) {
+    function Sidebar({ view, setView, user, cloudStatus }) {
       return (
         <aside className="sidebar h-full hidden md:flex">
 
@@ -799,6 +799,8 @@
       const [showDupModal, setShowDupModal] = useState(false);
 
       // State Controlled Form for Modal
+      // State Controlled Form for Modal
+      const [formData, setFormData] = useState({ categoryName: CATEGORIES[0].name });
       const [cloudStatus, setCloudStatus] = useState('idle'); // idle, saving, error, synced
 
       useEffect(() => {
@@ -938,7 +940,7 @@
 
       return (
         <div className="flex h-screen w-full text-white">
-          <Sidebar view={view} setView={setView} user={user} />
+          <Sidebar view={view} setView={setView} user={user} cloudStatus={cloudStatus} />
           <main className="flex-1 overflow-y-auto p-8 relative">
             <header className="flex justify-between items-end mb-8">
               <div>

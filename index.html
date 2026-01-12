@@ -287,7 +287,7 @@
     window.signOutGoogle = signOutGoogle;
     window.addEventListener("load", () => initGoogleAuth());
 
-    // Drive API
+    // Drive API (Simulated if running on wrong origin, but real code present)
     async function driveRequest(url, opts = {}) {
       if (!accessToken) throw new Error("Non authentifié");
       const headers = Object.assign({}, opts.headers || {}, { Authorization: `Bearer ${accessToken}` });
@@ -317,11 +317,11 @@
   </script>
 
   <script type="text/babel">
-    /* ==================== LOGIQUE REACT (Original Logic + New Design) ==================== */
+    /* ==================== LOGIQUE REACT & HELPERS ==================== */
     const { useState, useEffect, useRef, useMemo } = React;
     const Lucide = (props) => { useEffect(() => { if (window.lucide) window.lucide.createIcons() }, [props.icon]); return <i data-lucide={props.icon} className={props.className}></i> };
 
-    /* --- Constants --- */
+    /* --- Constants & Setup --- */
     const CATEGORIES = [{ icon: "wallet", name: "Revenus", color: "#10b981" }, { icon: "shopping-cart", name: "Alimentation", color: "#00d9ff" }, { icon: "utensils", name: "Restaurants", color: "#ffb700" }, { icon: "coffee", name: "Cafés / Bars", color: "#ff006e" }, { icon: "home", name: "Logement", color: "#6366f1" }, { icon: "flame", name: "Énergie / Gaz", color: "#6366f1" }, { icon: "droplet", name: "Eau", color: "#0ea5e9" }, { icon: "wifi", name: "Internet / Télécom", color: "#6366f1" }, { icon: "phone", name: "Téléphone", color: "#6366f1" }, { icon: "car", name: "Voiture", color: "#2563eb" }, { icon: "bus", name: "Transports", color: "#22d3ee" }, { icon: "shopping-bag", name: "Shopping", color: "#f472b6" }, { icon: "gift", name: "Cadeaux", color: "#ef4444" }, { icon: "banknote", name: "Impôts", color: "#a21caf" }, { icon: "heart-pulse", name: "Santé", color: "#ef4444" }, { icon: "briefcase", name: "Travail", color: "#6366f1" }, { icon: "tv", name: "Abonnements", color: "#6366f1" }, { icon: "music", name: "Loisirs", color: "#a3e635" }, { icon: "star", name: "Bonus", color: "#facc15" }, { icon: "piggy-bank", name: "Épargne", color: "#10b981" }, { icon: "bug", name: "Imprévus", color: "#38bdf8" }, { icon: "smile", name: "Autre", color: "#d1d5db" }];
     const formatAmount = n => Number(n).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
     const formatDate = d => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
@@ -330,13 +330,37 @@
     const normalizeString = str => (str || "").toLowerCase().trim();
     const sortTransactions = arr => { if (!Array.isArray(arr)) return []; return [...arr].sort((a, b) => new Date(b.date) - new Date(a.date)); }
 
+    /* --- Date Management Helpers --- */
     function monthKeyFromDate(d) { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`; }
     function formatMonthLabel(key) { const [y, m] = key.split('-').map(n => +n); const dt = new Date(y, m - 1, 1); return dt.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) }
+    function setDateToMonth(dateStr, y, m) {
+      const d = new Date(dateStr);
+      d.setFullYear(y);
+      d.setMonth(m - 1);
+      return d.toISOString().split('T')[0];
+    }
+    function addMonthsClamped(date, months) {
+      const d = new Date(date);
+      d.setMonth(d.getMonth() + months);
+      return d;
+    }
+    function getMonthsWithData(transactions) {
+      const map = {};
+      transactions.forEach(t => {
+        const key = monthKeyFromDate(t.date);
+        if (!map[key]) map[key] = { key, label: formatMonthLabel(key), count: 0, totalIn: 0, totalOut: 0 };
+        map[key].count++;
+        if (t.type === 'income') map[key].totalIn += +t.amount;
+        else map[key].totalOut += +t.amount;
+      });
+      return Object.values(map).sort((a, b) => b.key.localeCompare(a.key));
+    }
 
     /* --- Components --- */
 
     function ChartComponent({ transactions }) {
       const ref = useRef();
+      // Sort ascending for chart
       const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
 
       useEffect(() => {
@@ -483,7 +507,7 @@
       )
     }
 
-    function StatsView({ transactions }) {
+    function StatsView({ transactions, monthKey }) {
       // Calculate Expenses by Category
       const expenses = transactions.filter(t => t.type === 'expense');
       const catTotals = {};
@@ -502,13 +526,16 @@
 
       return (
         <div className="space-y-6">
+          {/* Header within Stats View to show what we are looking at */}
+          <div className="text-sm text-[var(--text-muted)] mb-2">Statistiques pour {formatMonthLabel(monthKey)}</div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="glass-panel p-6">
               <h3 className="text-lg font-bold mb-4">Répartition des Dépenses</h3>
               {expenses.length > 0 ? (
                 <DoughnutChart data={data} labels={labels} colors={colors} />
               ) : (
-                <div className="text-center text-gray-500 py-10">Aucune donnée</div>
+                <div className="text-center text-gray-500 py-10">Aucune donnée pour ce mois</div>
               )}
             </div>
             <div className="glass-panel p-6 flex flex-col justify-center">
@@ -538,6 +565,43 @@
       )
     }
 
+    // Modal to Copy Months
+    function DuplicateModal({ show, onClose, months, currentMonth, onDuplicate }) {
+      const [targetMonth, setTargetMonth] = useState("");
+
+      useEffect(() => {
+        // Default target: month after current
+        if (currentMonth) {
+          const [y, m] = currentMonth.split('-').map(Number);
+          const next = new Date(y, m, 1); // JS Month is 0-indexed, so m (1-12) works as next month index
+          const nextStr = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`;
+          setTargetMonth(nextStr);
+        }
+      }, [currentMonth, show]);
+
+      if (!show) return null;
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay">
+          <div className="glass-panel p-8 w-full max-w-md bg-[#0a0a0c]">
+            <h2 className="text-xl font-bold mb-4 text-white">Dupliquer le Mois</h2>
+            <p className="text-gray-400 mb-6 text-sm">Copier toutes les transactions de <b>{formatMonthLabel(currentMonth)}</b> vers :</p>
+
+            <input type="month" className="w-full mb-6" value={targetMonth} onChange={e => setTargetMonth(e.target.value)} />
+
+            <div className="flex gap-3">
+              <button onClick={onClose} className="btn-secondary w-full">Annuler</button>
+              <button onClick={() => {
+                if (!targetMonth) return;
+                const [ty, tm] = targetMonth.split('-').map(Number);
+                onDuplicate(ty, tm);
+              }} className="btn-primary w-full">Confirmer</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     /* --- Main App --- */
     function App() {
       const [transactions, setTransactions] = useState([]);
@@ -545,6 +609,10 @@
       const [user, setUser] = useState(null);
       const [showModal, setShowModal] = useState(false);
       const [editTx, setEditTx] = useState(null);
+
+      // Month Management State
+      const [monthFilter, setMonthFilter] = useState(monthKeyFromDate(new Date()));
+      const [showDupModal, setShowDupModal] = useState(false);
 
       // Initial Load
       useEffect(() => {
@@ -605,9 +673,36 @@
         reader.readAsText(file);
       }
 
-      // Stats
-      const income = sum(transactions.filter(t => t.type === 'income'), t => +t.amount);
-      const expense = sum(transactions.filter(t => t.type === 'expense'), t => +t.amount);
+      // --- NEW: Duplicate Logic ---
+      const handleDuplicateMonth = (targetYear, targetMonth) => {
+        // Filter source tx
+        const toCopy = transactions.filter(t => monthKeyFromDate(t.date) === monthFilter);
+        if (!toCopy.length) { alert("Rien à copier !"); return; }
+
+        const clones = toCopy.map(t => ({
+          ...t,
+          id: randomId(),
+          date: setDateToMonth(t.date, targetYear, targetMonth)
+        }));
+
+        const next = sortTransactions([...transactions, ...clones]);
+        setTransactions(next);
+        if (window.saveTransactionsToDrive && user) window.saveTransactionsToDrive(next);
+
+        setShowDupModal(false);
+        setMonthFilter(`${targetYear}-${String(targetMonth).padStart(2, '0')}`);
+        alert("Mois dupliqué avec succès !");
+      };
+
+      // Derived Data
+      const availableMonths = getMonthsWithData(transactions);
+      // Ensure current filter is in list if it has no data yet (e.g. fresh month), or just handle it gracefully
+
+      // Filter transactions for current View
+      const displayedTransactions = transactions.filter(t => monthKeyFromDate(t.date) === monthFilter);
+
+      const income = sum(displayedTransactions.filter(t => t.type === 'income'), t => +t.amount);
+      const expense = sum(displayedTransactions.filter(t => t.type === 'expense'), t => +t.amount);
       const balance = income - expense;
 
       return (
@@ -620,9 +715,28 @@
                 <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
                   {view === 'dashboard' ? 'Tableau de Bord' : (view === 'transactions' ? 'Transactions' : 'Statistiques')}
                 </h2>
-                <p className="text-[var(--text-muted)]">Votre situation financière en temps réel.</p>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-[var(--text-muted)]">Données du mois : </p>
+                  <select
+                    value={monthFilter}
+                    onChange={(e) => setMonthFilter(e.target.value)}
+                    className="bg-white/10 border-none text-white text-sm rounded-lg px-2 py-1 outline-none font-bold"
+                  >
+                    {/* Make sure filtered month is an option even if empty */}
+                    <option value={monthFilter}>{formatMonthLabel(monthFilter)}</option>
+                    {availableMonths.map(m => (
+                      m.key !== monthFilter && <option key={m.key} value={m.key}>{m.label}</option>
+                    ))}
+                    {/* Always offer current REAL month if not in list */}
+                    {/* Skipped for cleaner UI, use Date picker to jump? No, standard select is fine for existing data. To jump to new month, user creates TX in that month. */}
+                  </select>
+                </div>
               </div>
               <div className="flex gap-3">
+                <button onClick={() => setShowDupModal(true)} className="btn-secondary flex items-center gap-2" title="Dupliquer ce mois">
+                  <ion-icon name="copy-outline"></ion-icon> Dupliquer
+                </button>
+
                 {view === 'transactions' && (
                   <>
                     <button onClick={handleExport} className="btn-secondary flex items-center gap-2" title="Exporter JSON">
@@ -635,14 +749,14 @@
                   </>
                 )}
                 <button onClick={() => { setEditTx(null); setShowModal(true) }} className="btn-primary flex items-center gap-2">
-                  <ion-icon name="add-circle"></ion-icon> Nouvelle Transaction
+                  <ion-icon name="add-circle"></ion-icon> Transaction
                 </button>
               </div>
             </header>
 
             {/* Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <StatCard label="Solde Total" value={formatAmount(balance)} icon="wallet-outline" type="primary" />
+              <StatCard label={`Solde (${formatMonthLabel(monthFilter)})`} value={formatAmount(balance)} icon="wallet-outline" type="primary" />
               <StatCard label="Revenus" value={formatAmount(income)} icon="trending-up-outline" type="success" />
               <StatCard label="Dépenses" value={formatAmount(expense)} icon="trending-down-outline" type="danger" />
             </div>
@@ -650,13 +764,13 @@
             {/* VIEW: DASHBOARD */}
             {view === 'dashboard' && (
               <div className="glass-panel p-6 mb-8">
-                <h3 className="text-lg font-bold mb-4">Évolution du Solde</h3>
-                <ChartComponent transactions={transactions} />
+                <h3 className="text-lg font-bold mb-4">Évolution du Solde ({formatMonthLabel(monthFilter)})</h3>
+                <ChartComponent transactions={displayedTransactions} />
               </div>
             )}
 
             {/* VIEW: STATS */}
-            {view === 'stats' && <StatsView transactions={transactions} />}
+            {view === 'stats' && <StatsView transactions={displayedTransactions} monthKey={monthFilter} />}
 
             {/* VIEW: TRANSACTIONS / DASHBOARD LIST */}
             {(view === 'dashboard' || view === 'transactions') && (
@@ -676,7 +790,7 @@
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {transactions.slice(0, view === 'dashboard' ? 5 : undefined).map(tx => (
+                      {displayedTransactions.slice(0, view === 'dashboard' ? 5 : undefined).map(tx => (
                         <tr key={tx.id} className="group hover:bg-white/5 transition">
                           <td className="py-4 pl-2 font-medium text-white">{tx.title}</td>
                           <td className="py-4">
@@ -696,8 +810,8 @@
                           </td>
                         </tr>
                       ))}
-                      {transactions.length === 0 && (
-                        <tr><td colSpan="5" className="text-center py-8">Aucune transaction</td></tr>
+                      {displayedTransactions.length === 0 && (
+                        <tr><td colSpan="5" className="text-center py-8">Aucune transaction pour ce mois</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -706,7 +820,7 @@
             )}
           </main>
 
-          {/* MODAL */}
+          {/* MODAL TRANSACTION */}
           {showModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay">
               <div className="glass-panel p-8 w-full max-w-lg relative bg-[#0a0a0c]">
@@ -762,6 +876,14 @@
               </div>
             </div>
           )}
+
+          {/* MODAL DUPLICATE */}
+          <DuplicateModal
+            show={showDupModal}
+            onClose={() => setShowDupModal(false)}
+            currentMonth={monthFilter}
+            onDuplicate={handleDuplicateMonth}
+          />
         </div>
       );
     }

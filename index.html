@@ -439,7 +439,7 @@
     const sum = (arr, fn) => arr.reduce((a, c) => a + fn(c), 0);
     const randomId = () => Math.random().toString(36).slice(2, 10);
     const normalizeString = str => (str || "").toLowerCase().trim();
-    const sortTransactions = arr => { if (!Array.isArray(arr)) return []; return [...arr].sort((a, b) => new Date(b.date) - new Date(a.date)); }
+    const sortTransactions = arr => { if (!Array.isArray(arr)) return []; return [...arr].sort((a, b) => Number(b.amount) - Number(a.amount)); }
 
     /* --- Year-Month Key helpers --- */
     function monthKeyFromDate(d) { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`; }
@@ -870,7 +870,7 @@
         let next = [...transactions];
         if (editTx) next = next.map(t => t.id === tx.id ? tx : t);
         else next.push({ ...tx, id: randomId() });
-        next.sort((a, b) => new Date(b.date) - new Date(a.date));
+        next = sortTransactions(next);
         setTransactions(next);
         setShowModal(false);
         performSave(next);

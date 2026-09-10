@@ -1729,7 +1729,18 @@ function App() {
     const installRef = useRef(null);
     const closeDialog = () => setDialog(null);
     const notify = (title, message, kind = 'info') => setDialog({ kind, title, message, actions: [{ label: 'OK', className: 'primary', onClick: () => setDialog(null) }] });
-    const ask = ({ title, message, confirmLabel = 'Confirmer', cancelLabel = 'Annuler', danger = false, onConfirm }) => setDialog({ kind: danger ? 'danger' : 'confirm', title, message, actions: [{ label: cancelLabel, className: 'ghost', onClick: () => setDialog(null) }, { label: confirmLabel, className: danger ? 'danger' : 'primary', onClick: () => { setDialog(null); requestAnimationFrame(() => onConfirm?.()); } }] });
+    const ask = ({ title, message, confirmLabel = 'Confirmer', cancelLabel = 'Annuler', danger = false, hideMobileNav = false, onConfirm }) => setDialog({ kind: danger ? 'danger' : 'confirm', title, message, hideMobileNav, actions: [{ label: cancelLabel, className: 'ghost', onClick: () => setDialog(null) }, { label: confirmLabel, className: danger ? 'danger' : 'primary', onClick: () => { setDialog(null); requestAnimationFrame(() => onConfirm?.()); } }] });
+    useEffect(() => {
+        const nav = document.querySelector('.bottomNav');
+        const shouldHide = !!dialog?.hideMobileNav && window.matchMedia('(max-width:860px)').matches;
+        document.body.classList.toggle('transaction-delete-dialog-open', shouldHide);
+        if (nav)
+            shouldHide ? nav.style.setProperty('display', 'none', 'important') : nav.style.removeProperty('display');
+        return () => {
+            document.body.classList.remove('transaction-delete-dialog-open');
+            nav?.style.removeProperty('display');
+        };
+    }, [dialog?.hideMobileNav]);
     const selectBudgetMode = mode => {
         if (mode !== 'shared' && mode !== 'personal') return;
         if (sync.mode !== mode) sync.setMode(mode);
@@ -1862,15 +1873,15 @@ function App() {
         return; setTx(x => sortTx([data, ...x])); setMonth(keyOf(data.date)); setQuery(''); refreshUI(); syncAfterLocalChange(); };
     const updateTx = data => { if (needsSharedConnection())
         return; setTx(x => sortTx(x.map(t => t.id === data.id ? data : t))); setMonth(keyOf(data.date)); setQuery(''); refreshUI(); syncAfterLocalChange(); };
-    const del = id => { const item = tx.find(t => t.id === id); ask({ title: 'Supprimer cette transaction ?', message: `La transaction « ${item?.title || 'sélectionnée'} » sera supprimée définitivement${sync.mode === 'shared' ? ' pour les deux personnes' : ''}.`, confirmLabel: 'Supprimer', danger: true, onConfirm: () => { if (needsSharedConnection())
+    const del = id => { const item = tx.find(t => t.id === id); ask({ title: 'Supprimer cette transaction ?', message: `La transaction « ${item?.title || 'sélectionnée'} » sera supprimée définitivement${sync.mode === 'shared' ? ' pour les deux personnes' : ''}.`, confirmLabel: 'Supprimer', danger: true, hideMobileNav: true, onConfirm: () => { if (needsSharedConnection())
             return; removeTx([id]); refreshUI(); syncAfterLocalChange(); notify('Transaction supprimée', 'La liste a été mise à jour.', 'success'); } }); };
     const delMany = ids => { const list = (ids || []).filter(Boolean); if (!list.length)
-        return; ask({ title: `Supprimer ${list.length} transaction(s) ?`, message: `Les transactions sélectionnées seront supprimées définitivement${sync.mode === 'shared' ? ' pour les deux personnes' : ''}.`, confirmLabel: 'Supprimer', danger: true, onConfirm: () => { if (needsSharedConnection())
+        return; ask({ title: `Supprimer ${list.length} transaction(s) ?`, message: `Les transactions sélectionnées seront supprimées définitivement${sync.mode === 'shared' ? ' pour les deux personnes' : ''}.`, confirmLabel: 'Supprimer', danger: true, hideMobileNav: true, onConfirm: () => { if (needsSharedConnection())
             return; removeTx(list); refreshUI(); syncAfterLocalChange(); notify('Transactions supprimées', `${list.length} transaction(s) supprimée(s).`, 'success'); } }); };
     const deleteMonth = mk => { const monthRows = tx.filter(t => keyOf(t.date) === mk); if (!monthRows.length) {
         notify('Mois vide', `${labelMonth(mk)} ne contient aucune transaction.`, 'info');
         return;
-    } ask({ title: `Supprimer ${labelMonth(mk)} ?`, message: `Les ${monthRows.length} transaction(s) de ${labelMonth(mk)} seront supprimées définitivement${sync.mode === 'shared' ? ' pour les deux personnes' : ''}.`, confirmLabel: 'Supprimer le mois', danger: true, onConfirm: () => { if (needsSharedConnection())
+    } ask({ title: `Supprimer ${labelMonth(mk)} ?`, message: `Les ${monthRows.length} transaction(s) de ${labelMonth(mk)} seront supprimées définitivement${sync.mode === 'shared' ? ' pour les deux personnes' : ''}.`, confirmLabel: 'Supprimer le mois', danger: true, hideMobileNav: true, onConfirm: () => { if (needsSharedConnection())
             return; removeTx(monthRows.map(t => t.id)); if (month === mk)
             setMonth(keyOf(today())); refreshUI(); syncAfterLocalChange(); notify('Mois supprimé', `${labelMonth(mk)} a été vidé (${monthRows.length} transaction(s)).`, 'success'); } }); };
     const exportAll = () => { const a = document.createElement('a'); const label = sync.mode === 'shared' ? 'Prime-Finance-Duo' : 'Prime-Finance'; const payload = { app: 'Prime Finance', version: 3, exportedAt: new Date().toISOString(), mode: sync.mode, pairRoom: sync.pairRoom, selectedMonth: month, transactions: tx, budgets, goals }; const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); a.href = url; a.download = `${label}-sauvegarde-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1500); notify('Sauvegarde créée', `${tx.length} transaction(s), ${Object.keys(budgets).length} budget(s) et ${goals.length} objectif(s) ont été exportés.`, 'success'); };
@@ -2019,8 +2030,8 @@ function App() {
             " ",
             view === 'settings' && React.createElement(Settings, { duplicate: openDuplicate, exportAll: exportAll, importAll: importAll, clear: clearAll, sync: sync, month: month, rows: rows, shareCode: shareCode, setShareCode: setShareCode, generateShare: generateShare, importShare: importShare, notify: notify, promptInstall: promptInstall, isInstalled: isInstalled, onModeChange: selectBudgetMode }),
             " "),
-        modal?.type !== 'tx' && React.createElement(MobileNav, { view: view, setView: setView }),
-        view === 'transactions' && modal?.type !== 'tx' && React.createElement("button", { className: "fab", onClick: () => setModal({ type: 'tx' }) },
+        React.createElement(MobileNav, { view: view, setView: setView }),
+        view === 'transactions' && React.createElement("button", { className: "fab", onClick: () => setModal({ type: 'tx' }) },
             React.createElement("ion-icon", { name: "add-outline" })),
         modal?.type === 'tx' && React.createElement(TxModal, { modal: modal, selectedMonth: month, close: () => setModal(null), save: d => { modal.edit ? updateTx(d) : addTx(d); setModal(null); } }),
         modal?.type === 'duplicate' && React.createElement(DuplicateModal, { month: month, monthsList: monthsAfter(), close: () => setModal(null), submit: t => { setModal(null); requestAnimationFrame(() => doDuplicate(t, false)); } }),
@@ -2136,7 +2147,6 @@ function Home({ rows, month, refreshKey, setModal, duplicate }) { return React.c
         React.createElement("div", { className: "chartBox" },
             React.createElement(ChartDonut, { rows: rows, version: refreshKey })))); }
 function PaidBadge() { return React.createElement("span", { className: "txPaidBadge" }, "Pay\u00E9"); }
-function MonthlyChargeBadge() { return React.createElement("span", { className: "monthlyTxBadge", title: "Charge mensuelle" }, React.createElement("ion-icon", { name: "repeat-outline" }), "Mensuelle"); }
 function AmountBlock({ tx }) { const show = txShowsPayment(tx); const remaining = txRemaining(tx); return React.createElement("div", { className: "txAmountBlock" },
     React.createElement("div", { className: tx.type === 'income' ? 'amount green' : 'amount red' },
         tx.type === 'income' ? '+' : '-',
@@ -2260,11 +2270,10 @@ function Transactions({ rows, query, setQuery, setModal, del, delMany }) {
                                 React.createElement("b", null, t.title),
                                 paid && React.createElement(PaidBadge, null),
                                 React.createElement("div", { className: "mini" }, t.note)),
-                            React.createElement("td", { className: "txCategoryCell" },
+                            React.createElement("td", null,
                                 React.createElement("span", { className: "pill" },
                                     React.createElement("ion-icon", { name: t.category.icon, style: { color: t.category.color } }),
-                                    t.category.name),
-                                t.isMonthlyCharge && React.createElement(MonthlyChargeBadge, null)),
+                                    t.category.name)),
                             React.createElement("td", null, new Date(t.date).toLocaleDateString('fr-FR')),
                             React.createElement("td", null, t.type === 'income' ? 'Revenu' : 'Dépense'),
                             React.createElement("td", null, React.createElement(AmountBlock, { tx: t })));
@@ -2273,11 +2282,10 @@ function Transactions({ rows, query, setQuery, setModal, del, delMany }) {
                             React.createElement("b", null, t.title),
                             paid && React.createElement(PaidBadge, null),
                             React.createElement("div", { className: "mini" }, t.note)),
-                        React.createElement("td", { className: "txCategoryCell" },
+                        React.createElement("td", null,
                             React.createElement("span", { className: "pill" },
                                 React.createElement("ion-icon", { name: t.category.icon, style: { color: t.category.color } }),
-                                t.category.name),
-                            t.isMonthlyCharge && React.createElement(MonthlyChargeBadge, null)),
+                                t.category.name)),
                         React.createElement("td", null, new Date(t.date).toLocaleDateString('fr-FR')),
                         React.createElement("td", null, t.type === 'income' ? 'Revenu' : 'Dépense'),
                         React.createElement("td", null, React.createElement(AmountBlock, { tx: t })),
@@ -2319,9 +2327,9 @@ function TxList({ rows, setModal, del }) { return React.createElement("div", { c
         React.createElement("div", null,
             React.createElement("div", { className: "txTitle" }, t.title),
             React.createElement("div", { className: "txMeta" },
-                React.createElement("span", { className: "txMetaCategory" }, t.category.name),
-                t.isMonthlyCharge && React.createElement(MonthlyChargeBadge, null),
-                React.createElement("span", { className: "txMetaDate" }, " • ", new Date(t.date).toLocaleDateString('fr-FR')))),
+                t.category.name,
+                " \u2022 ",
+                new Date(t.date).toLocaleDateString('fr-FR'))),
         React.createElement(AmountBlock, { tx: t }),
         React.createElement("div", { className: "txActions" },
             React.createElement("button", { className: "btn", onClick: (e) => { e.stopPropagation(); setModal({ type: 'tx', edit: t }); } }, "Modifier"))); })) : React.createElement("div", { className: "empty" }, "Aucune transaction pour ce mois.")); }
@@ -2883,6 +2891,10 @@ input,select,textarea{background:#0b1a2c!important;border-color:rgba(137,176,224
   function lockNav(){
     var nav=document.querySelector('.bottomNav');
     if(!nav||!window.matchMedia('(max-width:860px)').matches)return;
+    if(document.body.classList.contains('transaction-delete-dialog-open')){
+      nav.style.setProperty('display','none','important');
+      return;
+    }
     var w=Math.max(280,window.innerWidth-20);
     nav.style.setProperty('position','fixed','important');nav.style.setProperty('left','50%','important');nav.style.setProperty('right','auto','important');nav.style.setProperty('width',w+'px','important');nav.style.setProperty('max-width',w+'px','important');nav.style.setProperty('transform','translateX(-50%) translateZ(0)','important');nav.style.setProperty('display','flex','important');nav.style.setProperty('overflow','hidden','important');
     Array.prototype.forEach.call(nav.children,function(b){b.style.setProperty('flex','1 1 0','important');b.style.setProperty('width','0','important');b.style.setProperty('min-width','0','important');});
@@ -3710,24 +3722,7 @@ th,td{padding:13px 14px!important}tbody tr:hover{background:rgba(91,169,224,.045
 
 <style id="primefinance-hide-mobile-nav-during-transaction-modal">
 @media (max-width:860px){
-  body.tx-modal-open .bottomNav,
-  body.tx-modal-open .fab{display:none!important}
-}
-</style>
-
-<style id="primefinance-monthly-list-badge">
-.txCategoryCell{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.monthlyTxBadge{display:inline-flex;align-items:center;gap:4px;min-height:26px;padding:0 8px;border-radius:999px;border:1px solid rgba(53,212,154,.30);background:rgba(53,212,154,.10);color:#bff6df;font-size:10px;font-weight:900;line-height:1;white-space:nowrap;vertical-align:middle}
-.monthlyTxBadge ion-icon{font-size:13px;color:var(--green);flex:0 0 auto}
-.txMeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.txMeta .monthlyTxBadge{min-height:20px;padding:0 6px;font-size:9px}
-.txMeta .monthlyTxBadge ion-icon{font-size:11px}
-.txMetaDate{color:var(--muted)}
-@media(max-width:700px){
-  .transactionWorkspace .txCategoryCell{display:flex!important;align-items:center!important;gap:5px!important;flex-wrap:nowrap!important;overflow:hidden!important}
-  .transactionWorkspace .txCategoryCell .pill{min-width:0!important;max-width:calc(100% - 76px)!important}
-  .transactionWorkspace .monthlyTxBadge{min-height:24px!important;height:24px!important;padding:0 6px!important;border-radius:7px!important;font-size:7.5px!important;letter-spacing:.01em!important;flex:0 0 auto!important}
-  .transactionWorkspace .monthlyTxBadge ion-icon{font-size:11px!important}
+  body.tx-modal-open .bottomNav{display:none!important}
 }
 </style>
 </body>

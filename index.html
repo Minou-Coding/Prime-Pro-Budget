@@ -1730,17 +1730,18 @@ function App() {
     const closeDialog = () => setDialog(null);
     const notify = (title, message, kind = 'info') => setDialog({ kind, title, message, actions: [{ label: 'OK', className: 'primary', onClick: () => setDialog(null) }] });
     const ask = ({ title, message, confirmLabel = 'Confirmer', cancelLabel = 'Annuler', danger = false, hideMobileNav = false, onConfirm }) => setDialog({ kind: danger ? 'danger' : 'confirm', title, message, hideMobileNav, actions: [{ label: cancelLabel, className: 'ghost', onClick: () => setDialog(null) }, { label: confirmLabel, className: danger ? 'danger' : 'primary', onClick: () => { setDialog(null); requestAnimationFrame(() => onConfirm?.()); } }] });
+    const mobileModalOpen = !!(modal || dialog);
     useEffect(() => {
         const nav = document.querySelector('.bottomNav');
-        const shouldHide = !!dialog?.hideMobileNav && window.matchMedia('(max-width:860px)').matches;
-        document.body.classList.toggle('transaction-delete-dialog-open', shouldHide);
+        const shouldHide = mobileModalOpen && window.matchMedia('(max-width:860px)').matches;
+        document.body.classList.toggle('mobile-modal-open', shouldHide);
         if (nav)
             shouldHide ? nav.style.setProperty('display', 'none', 'important') : nav.style.removeProperty('display');
         return () => {
-            document.body.classList.remove('transaction-delete-dialog-open');
+            document.body.classList.remove('mobile-modal-open');
             nav?.style.removeProperty('display');
         };
-    }, [dialog?.hideMobileNav]);
+    }, [mobileModalOpen]);
     const selectBudgetMode = mode => {
         if (mode !== 'shared' && mode !== 'personal') return;
         if (sync.mode !== mode) sync.setMode(mode);
@@ -2891,7 +2892,7 @@ input,select,textarea{background:#0b1a2c!important;border-color:rgba(137,176,224
   function lockNav(){
     var nav=document.querySelector('.bottomNav');
     if(!nav||!window.matchMedia('(max-width:860px)').matches)return;
-    if(document.body.classList.contains('transaction-delete-dialog-open')){
+    if(document.body.classList.contains('mobile-modal-open')||document.querySelector('.modal')){
       nav.style.setProperty('display','none','important');
       return;
     }
@@ -3720,9 +3721,10 @@ th,td{padding:13px 14px!important}tbody tr:hover{background:rgba(91,169,224,.045
 }
 </style>
 
-<style id="primefinance-hide-mobile-nav-during-transaction-modal">
+<style id="primefinance-hide-mobile-nav-during-modals">
 @media (max-width:860px){
-  body.tx-modal-open .bottomNav{display:none!important}
+  body.mobile-modal-open .bottomNav,
+  body:has(.modal) .bottomNav{display:none!important}
 }
 </style>
 </body>
